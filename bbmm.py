@@ -34,7 +34,6 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
 import cupy as cp
-import torch
 from .krylov import Krylov
 from .preconditioner import Preconditioner_Nystroem
 import numpy.linalg as LA
@@ -102,33 +101,9 @@ class BBMM(object):
             self.cnp = np
         self.kernel = kernel
 
-    def update_parameters(self):
-        self.lengthscale_torch = torch.exp(self.loglengthscale)
-        self.variance_torch = torch.exp(self.logvariance)
-        if self.clamp_noise is not None:
-            self.noise_torch = torch.clamp(torch.exp(self.logrelativenoise), min=self.clamp_noise) * self.variance_torch
-        else:
-            self.noise_torch = torch.exp(self.logrelativenoise) * self.variance_torch
-        self.lengthscale = self.lengthscale_torch.item()
-        self.variance = self.variance_torch.item()
-        self.noise = self.noise_torch.item()
-
-    def set_lr(self, lr):
-        self.learning_rate = lr
-        self.history_parameters = []
-        self.history_grads = []
-        self.parameters = []
-        if self.opt_lengthscale:
-            self.parameters.append(self.loglengthscale)
-        if self.opt_variance:
-            self.parameters.append(self.logvariance)
-        if self.opt_noise:
-            self.parameters.append(self.logrelativenoise)
-        self.optimizer = torch.optim.Adam(self.parameters, lr=self.learning_rate, betas=self.betas)
-
-    def initialize_kernel(self):
-        self.kernel.set_lengthscale(self.lengthscale)
-        self.kernel.set_variance(self.variance)
+    def initialize_kernel(self, lengthscale, variance):
+        self.kernel.set_lengthscale(lengthscale)
+        self.kernel.set_variance(variance)
         if self.batch is None:
             assert not self.GPU
             self.K_full = self.kernel.K(self.X, self.X)
@@ -141,19 +116,8 @@ class BBMM(object):
         self.total_time_pred = 0.0
         self.total_time_CG = 0.0
 
-    def initialize(self, X, lengthscale, variance, noise, batch=None, clamp_noise=None, init_lr=0.5, betas=(0.9, 0.99), opt_lengthscale=True, opt_variance=True, opt_relativenoise=True):
-        # initialize optimier
-        self.opt_iter = 0
-        self.clamp_noise = clamp_noise
-        self.loglengthscale = torch.nn.Parameter(torch.tensor(np.log(lengthscale), requires_grad=True))
-        self.logvariance = torch.nn.Parameter(torch.tensor(np.log(variance), requires_grad=True))
-        self.logrelativenoise = torch.nn.Parameter(torch.tensor(np.log(noise / variance), requires_grad=True))
-        self.opt_lengthscale = opt_lengthscale
-        self.opt_variance = opt_variance
-        self.opt_noise = opt_relativenoise
-        self.betas = betas
-        self.update_parameters()
-        self.set_lr(init_lr)
+    def initialize(self, X, lengthscale, variance, noise, batch=None):
+        # initialize bbmm
 
         if not self.GPU:
             self.X = np.array(X).copy()
@@ -166,7 +130,8 @@ class BBMM(object):
         self.dtype = X.dtype
         self.N = len(X)
         self.batch = batch
-        self.initialize_kernel()
+        self.noise = noise
+        self.initialize_kernel(lengthscale, variance)
 
     def _matrix_batch_CPU(self, method, vec):
         '''
@@ -411,12 +376,12 @@ class BBMM(object):
             self.K_guess = K12.dot(LA.inv(self.K11 + I * self.noise)).dot(K12.T)
             self.err_K_guess_qr = self.Q.dot(self.K_core).dot(self.Q.T) - self.K_guess
             if self.verbose:
-                print("Error of K_guess after QR:", np.max(np.abs(self.err_K_guess_qr)) / self.variance)
+                print("Error of K_guess after QR:", np.max(np.abs(self.err_K_guess_qr)) / self.kernel.variance)
             self.invhalf_eigvals = 1 / np.sqrt(self.eigvals + self.noise) - 1 / np.sqrt(self.noise)
             self.K_pred_invhalf = self.U.dot(np.diag(self.invhalf_eigvals)).dot(self.U.T) + np.eye(self.N) / np.sqrt(self.noise)
             self.err_eigdecomposition = self.K_pred_invhalf.dot(self.K_guess + np.eye(self.N) * self.noise).dot(self.K_pred_invhalf) - np.eye(self.N)
             if self.verbose:
-                print("Error of Eigenvalue Decomposition:", np.max(np.abs(self.err_eigdecomposition)) / self.variance)
+                print("Error of Eigenvalue Decomposition:", np.max(np.abs(self.err_eigdecomposition)) / self.kernel.variance)
             self.K_pred = self.K_pred_invhalf.dot(self.K_full_np + np.eye(self.N) * self.noise).dot(self.K_pred_invhalf)
             self.eigvals_K_pred = LA.eigvalsh(self.K_pred)
             if self.verbose:
@@ -558,7 +523,7 @@ class BBMM(object):
             Knoise_dot_woodbury_vec = self.mv_Knoise_numpy(woodbury_vec_iter)
             K_dot_woodbury_vec = Knoise_dot_woodbury_vec - woodbury_vec_iter * self.noise
             dL_dlengthscale = woodbury_vec_iter.T.dot(dK_dlengthscale_dot_woodbury_vec)[0, 0] / 2 - self.tr_dK_dlengthscale / 2
-            dL_dvariance = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (self.N - self.tr_I * self.noise) / 2) / self.variance
+            dL_dvariance = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (self.N - self.tr_I * self.noise) / 2) / self.kernel.variance
             dL_dnoise = woodbury_vec_iter.T.dot(woodbury_vec_iter)[0, 0] / 2 - self.tr_I / 2
             self.gradients = LL_gradient(dL_dvariance, dL_dlengthscale, dL_dnoise)
         else:
@@ -587,15 +552,3 @@ class BBMM(object):
         if self.verbose:
             print("Direct solving done. Time", t2 - t1, file=self.file, flush=True)
         return cp.asnumpy(woodbury_vec)
-
-    def opt_step(self):
-        self.optimizer.zero_grad()
-        self.lengthscale_torch.backward(gradient=torch.tensor(-self.gradients.lengthscale))
-        self.variance_torch.backward(gradient=torch.tensor(-self.gradients.variance), retain_graph=True)
-        self.noise_torch.backward(gradient=torch.tensor(-self.gradients.noise))
-        self.optimizer.step()
-        self.update_parameters()
-        self.history_parameters.append(np.array(list(map(lambda x: x.item(), self.parameters))))
-        self.history_grads.append(np.array(list(map(lambda x: x.grad.item(), self.parameters))))
-        self.initialize_kernel()
-        self.opt_iter += 1
