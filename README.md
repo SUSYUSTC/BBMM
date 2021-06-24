@@ -5,10 +5,12 @@ This is a package includes BBMM and revised BBMM algorithms for GP. The orginial
 ```python setup.py XXXX```
 
 ## Dependences ##
-* CUDA ```pip install setup.py XXXX ``` 
-* Cupy ```pip install setup.py XXXX ``` 
-* Numpy ```pip install setup.py XXXX ```   
+* Cupy ```pip install cupy ``` 
+* Numpy ```pip install numpy```  
+* Scipy ```pip install scipy``` 
 
+## How to use ##
+```test``` folder includes example codes and data to show how to use this package. 
 
 ## Referencess ##
 1. Wang, Ke Alexander, Geoff Pleiss, Jacob R. Gardner, Stephen Tyree, Kilian Q. Weinberger, and Andrew Gordon Wilson. “Exact Gaussian processes on a million data points.” arXiv preprint arXiv:1903.08114 (2019). Accepted by NeurIPS 2019 [[Link]](https://arxiv.org/abs/1903.08114)
