@@ -4,29 +4,37 @@ import cupy as cp
 
 
 class Cache(object):
-    def __init__(self):
-        pass
+    def __init__(self, group='default'):
+        self.group = group
 
     def __call__(self, f):
         def g(*args, **kwargs):
-            self_f = args[0];
+            self_f = args[0]
             name = f.__name__
+
             if not hasattr(self_f, 'cache'):
-                self_f.cache = None
+                self_f.cache = {}
             if not hasattr(self_f, 'cache_data'):
                 self_f.cache_data = {}
-            if 'cache' in kwargs:
-                do_cache = kwargs['cache']
-            else:
-                do_cache = self_f.cache
+            if name not in self_f.cache_data:
+                self_f.cache_data[name] = {}
+            this_func_cache_data = self_f.cache_data[name]
 
-            self_f.cache = do_cache
-            if do_cache:
-                if name not in self_f.cache_data:
+            if 'cache' in kwargs:
+                this_cache = kwargs['cache']
+            else:
+                this_cache = self_f.cache
+            self_f.cache = this_cache
+
+            if self.group in this_cache:
+                keyname = this_cache[self.group]
+                if keyname not in this_func_cache_data:
                     if 'cache' in kwargs:
                         del kwargs['cache']
-                    self_f.cache_data[name] = f(*args, **kwargs)
-                return self_f.cache_data[name]
+                    this_func_cache_data[keyname] = f(*args, **kwargs)
+                else:
+                    pass
+                return this_func_cache_data[keyname]
             else:
                 if 'cache' in kwargs:
                     del kwargs['cache']
@@ -37,7 +45,7 @@ class Cache(object):
 
 class Kernel(object):
     def __init__(self):
-        self.cache = False
+        self.cache = {}
         pass
 
     def K(self, X1, X2=None):
@@ -90,7 +98,7 @@ class Stationary(Kernel):
     def d3K_drdrdr(self, r):
         raise NotImplementedError
 
-    @Cache()
+    @Cache('g')
     def r(self, X1, X2=None):
         '''
         A numpy-cupy generic code to calculate the distance matrix between X1 and X2.
@@ -115,142 +123,129 @@ class Stationary(Kernel):
         distance += 1e-12
         return xp.sqrt(distance) / self.lengthscale
 
-    @Cache()
+    @Cache('g')
     def K(self, X1, X2=None):
         r = self.r(X1, X2)
         return self.K_of_r(r)
 
-    #@Cache()
-    def Xdiff_dX(self, X1, X2, dX1, r):
+    @Cache('gd1')
+    def Xdiff_dX(self, X1, X2, dX1):
         xp = cp.get_array_module(X1)
         return xp.sum((X1[:, None, :] - X2[None, :, :]) * dX1[:, None, :], axis=-1)
 
-    #@Cache()
-    def Xdiff_dX2(self, X1, X2, dX2, r):
+    @Cache('gd2')
+    def Xdiff_dX2(self, X1, X2, dX2):
         xp = cp.get_array_module(X1)
         return xp.sum((X2[None, :, :] - X1[:, None, :]) * dX2[None, :, :], axis=-1)
 
-    #@Cache()
+    @Cache('gd1')
     def dr_dX(self, X1, X2, dX1, r):
         if X2 is None:
             X2 = X1
-        return self.Xdiff_dX(X1, X2, dX1, r) / r
+        return self.Xdiff_dX(X1, X2, dX1) / r / self.lengthscale ** 2
 
-    #@Cache()
+    @Cache('gd2')
     def dr_dX2(self, X1, X2, dX2, r):
         if X2 is None:
             X2 = X1
-        return self.Xdiff_dX2(X1, X2, dX2, r) / r
+        return self.Xdiff_dX2(X1, X2, dX2) / r / self.lengthscale ** 2
 
-    #@Cache()
+    @Cache('gdd')
     def d2r_dXdX2(self, X1, X2, dX1, dX2, r):
         if X2 is None:
             X2 = X1
         xp = cp.get_array_module(X1)
-        return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T)) / r
+        return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T) / self.lengthscale ** 2) / r
         #return 0
 
-    @Cache()
+    @Cache('g')
     def dr_dl(self, r):
         return -r / self.lengthscale
 
-    @Cache()
+    @Cache('g')
     def dK_dl(self, X1, X2=None):
         r = self.r(X1, X2)
         return self.dK_dr(r) * self.dr_dl(r)
 
-    @Cache()
+    @Cache('g')
     def d2K_drdl(self, r):
         return self.d2K_drdr(r) * self.dr_dl(r) - self.dK_dr(r) / self.lengthscale
 
-    @Cache()
+    @Cache('g')
     def d3K_drdrdl(self, r):
         return self.d3K_drdrdr(r) * self.dr_dl(r) - self.d2K_drdr(r) / self.lengthscale * 2
 
-    @Cache()
+    @Cache('g')
     def dK_dv(self, X1, X2=None):
         return self.K(X1, X2) / self.variance
 
-    @Cache()
+    @Cache('g')
     def d2K_drdv(self, r):
         return self.dK_dr(r) / self.variance
 
-    @Cache()
+    @Cache('g')
     def d3K_drdrdv(self, r):
         return self.d2K_drdr(r) / self.variance
 
     # Start fake methods
-    #@Cache()
     def _fake_dK_dX(self, method1, X1, dX1, X2=None):
         r = self.r(X1, X2)
         return method1(r) * self.dr_dX(X1, X2, dX1, r)
 
-    #@Cache()
     def _fake_dK_dX2(self, method1, X1, dX2, X2=None):
         r = self.r(X1, X2)
         return method1(r) * self.dr_dX2(X1, X2, dX2, r)
 
-    #@Cache()
     def _fake_d2K_dXdX2(self, method1, method2, X1, dX1, dX2, X2=None):
         r = self.r(X1, X2)
         return method2(r) * self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) + method1(r) * self.d2r_dXdX2(X1, X2, dX1, dX2, r)
 
     # Start K
-    #@Cache()
+    @Cache('gd1')
     def dK_dX(self, X1, dX1, X2=None):
         return self._fake_dK_dX(self.dK_dr, X1, dX1, X2=X2)
 
-    #@Cache()
+    @Cache('dg2')
     def dK_dX2(self, X1, dX2, X2=None):
         return self._fake_dK_dX2(self.dK_dr, X1, dX2, X2=X2)
 
-    #@Cache()
+    @Cache('gdd')
     def d2K_dXdX2(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.dK_dr, self.d2K_drdr, X1, dX1, dX2, X2=X2)
 
     # Start dK_dl
-    #@Cache()
+    @Cache('gd1')
     def d2K_dXdl(self, X1, dX1, X2=None):
         return self._fake_dK_dX(self.d2K_drdl, X1, dX1, X2=X2)
 
-    #@Cache()
+    @Cache('dg2')
     def d2K_dX2dl(self, X1, dX2, X2=None):
         return self._fake_dK_dX2(self.d2K_drdl, X1, dX2, X2=X2)
 
-    #@Cache()
+    @Cache('dgg')
     def d3K_dXdX2dl(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.d2K_drdl, self.d3K_drdrdl, X1, dX1, dX2, X2=X2)
 
     # Start dK_dv
-    #@Cache()
+    @Cache('dg1')
     def d2K_dXdv(self, X1, dX1, X2=None):
         return self._fake_dK_dX(self.d2K_drdv, X1, dX1, X2=X2)
 
-    #@Cache()
+    @Cache('dg2')
     def d2K_dX2dv(self, X1, dX2, X2=None):
         return self._fake_dK_dX2(self.d2K_drdv, X1, dX2, X2=X2)
 
-    #@Cache()
+    @Cache('dgg')
     def d3K_dXdX2dv(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.d2K_drdv, self.d3K_drdrdv, X1, dX1, dX2, X2=X2)
 
+    def d2K_dXdX_0(self, dX):
+        xp = cp.get_array_module(dX)
+        return -xp.sum(dX**2, axis=1) * self.dK_dR0_0() * 2
 
-'''
-    @Cache()
-    def dK_dX(self, X1, dX1, X2=None):
-        r = self.r(X1, X2)
-        return self.dK_dr(r) * self.dr_dX(X1, X2, dX1, r)
-
-    @Cache()
-    def dK_dX2(self, X1, dX2, X2=None):
-        r = self.r(X1, X2)
-        return self.dK_dr(r) * self.dr_dX2(X1, X2, dX2, r)
-
-    @Cache()
-    def d2K_dXdX2(self, X1, dX1, dX2, X2=None):
-        r = self.r(X1, X2)
-        return self.d2K_drdr(r) * self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) + self.dK_dr(r) * self.d2r_dXdX2(X1, X2, dX1, dX2, r)
-'''
+    def K_0(self, dX):
+        xp = cp.get_array_module(dX)
+        return xp.ones((dX.shape[0],)) * self.variance
 
 
 class RBF(Stationary):
@@ -271,25 +266,28 @@ class RBF(Stationary):
     def __init__(self):
         super().__init__()
 
-    @Cache()
+    @Cache('g')
     def K_of_r(self, r):
         xp = cp.get_array_module(r)
         return xp.exp(-r**2 / 2) * self.variance
 
-    @Cache()
+    @Cache('g')
     def dK_dr(self, r):
         xp = cp.get_array_module(r)
         return -xp.exp(-r**2 / 2) * r * self.variance
 
-    @Cache()
+    @Cache('g')
     def d2K_drdr(self, r):
         xp = cp.get_array_module(r)
         return xp.exp(-r**2 / 2) * (r**2 - 1) * self.variance
 
-    @Cache()
+    @Cache('g')
     def d3K_drdrdr(self, r):
         xp = cp.get_array_module(r)
         return xp.exp(-r**2 / 2) * (3 - r**2) * r * self.variance
+
+    def dK_dR0_0(self):
+        return -0.5 / self.lengthscale ** 2 * self.variance
 
 
 class Matern32(Stationary):
@@ -310,13 +308,32 @@ class Matern32(Stationary):
     def __init__(self):
         super().__init__()
 
+    @Cache('g')
     def K_of_r(self, r):
         xp = cp.get_array_module(r)
-        return (1. + xp.sqrt(3.) * r) * xp.exp(-xp.sqrt(3.) * r) * self.variance
+        s3 = xp.sqrt(3.)
+        return (1. + s3 * r) * xp.exp(-s3 * r) * self.variance
 
+    @Cache('g')
     def dK_dr(self, r):
         xp = cp.get_array_module(r)
-        return - 3. * r * xp.exp(-xp.sqrt(3.) * r) * self.variance
+        s3 = xp.sqrt(3.)
+        return - 3 * r * xp.exp(-s3 * r) * self.variance
+
+    @Cache('g')
+    def d2K_drdr(self, r):
+        xp = cp.get_array_module(r)
+        s3 = xp.sqrt(3.)
+        return (s3 * r - 1) * 3 * xp.exp(-s3 * r) * self.variance
+
+    @Cache('g')
+    def d3K_drdrdr(self, r):
+        xp = cp.get_array_module(r)
+        s3 = xp.sqrt(3.)
+        return (s3 * 2 - r * 3) * 3 * xp.exp(-s3 * r) * self.variance
+
+    def dK_dR0_0(self):
+        return -1.5 / self.lengthscale ** 2 * self.variance
 
 
 class Matern52(Stationary):
@@ -337,10 +354,29 @@ class Matern52(Stationary):
     def __init__(self):
         super().__init__()
 
+    @Cache('g')
     def K_of_r(self, r):
         xp = cp.get_array_module(r)
-        return (1 + xp.sqrt(5.) * r + 5. / 3 * r**2) * xp.exp(-xp.sqrt(5.) * r) * self.variance
+        s5 = xp.sqrt(5)
+        return (1 + s5 * r + 5. / 3 * r**2) * xp.exp(-s5 * r) * self.variance
 
+    @Cache('g')
     def dK_dr(self, r):
         xp = cp.get_array_module(r)
-        return (- 5.0 / 3 * r - 5. * xp.sqrt(5.) / 3 * r**2) * xp.exp(-xp.sqrt(5.) * r) * self.variance
+        s5 = xp.sqrt(5)
+        return (- 5.0 / 3 * r - 5. * s5 / 3 * r**2) * xp.exp(-s5 * r) * self.variance
+
+    @Cache('g')
+    def d2K_drdr(self, r):
+        xp = cp.get_array_module(r)
+        s5 = xp.sqrt(5)
+        return (-1 - s5 * r + 5. * r**2) * 5 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
+
+    @Cache('g')
+    def d3K_drdrdr(self, r):
+        xp = cp.get_array_module(r)
+        s5 = xp.sqrt(5)
+        return (3 * r - s5 * r**2) * 25 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
+
+    def dK_dR0_0(self):
+        return -5.0 / 6 / self.lengthscale ** 2 * self.variance

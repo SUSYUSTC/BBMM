@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 
-class Optimizer(object):
+class Adam(object):
     def __init__(self, lengthscale, variance, noise, clamp_noise=None, init_lr=0.5, betas=(0.9, 0.99), opt_lengthscale=True, opt_variance=True, opt_relativenoise=True):
         # initialize optimier
         self.lengthscale = lengthscale
