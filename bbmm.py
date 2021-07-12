@@ -107,7 +107,7 @@ class BBMM(object):
         if self.batch is None:
             assert not self.GPU
             self.K_full = self.kernel.K(self.X, self.X)
-            self.dK_dlengthscale_full = self.kernel.dK_dlengthscale(self.X, self.X)
+            self.dK_dlengthscale_full = self.kernel.dK_dl(self.X, self.X)
         else:
             self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
 
@@ -206,9 +206,9 @@ class BBMM(object):
 
     def dK_dlengthscale_batch(self, vec, GPU):
         if GPU:
-            return self._matrix_batch_GPU(self.kernel.dK_dlengthscale, vec)
+            return self._matrix_batch_GPU(self.kernel.dK_dl, vec)
         else:
-            return self._matrix_batch_CPU(self.kernel.dK_dlengthscale, vec)
+            return self._matrix_batch_CPU(self.kernel.dK_dl, vec)
 
     def mv_Knoise(self, vec):
         '''
@@ -369,7 +369,7 @@ class BBMM(object):
             self.R = R
             if self.GPU:
                 self.K_full_np = cp.asnumpy(self.kernel.K(self.X[0], self.X[0]))
-                self.dK_dlengthscale_full_np = cp.asnumpy(self.kernel.dK_dlengthscale(self.X[0], self.X[0]))
+                self.dK_dlengthscale_full_np = cp.asnumpy(self.kernel.dK_dl(self.X[0], self.X[0]))
             else:
                 self.K_full_np = self.kernel.K(self.X, self.X)
                 self.dK_dlengthscale_full_np = self.kernel.dK_dlengthscale(self.X, self.X)

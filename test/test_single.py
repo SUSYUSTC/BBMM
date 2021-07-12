@@ -1,5 +1,8 @@
 import BBMM
 import numpy as np
+import unittest
+
+
 dtype = np.float64
 X = np.load("./X_test.npy").astype(dtype)
 Y = np.load("./Y_test.npy").astype(dtype)
@@ -8,18 +11,42 @@ lengthscale = 1.0
 variance = 5.0
 noise = 1e-2
 batch = min(4096, N)
-thres = 1e-8
-# larger block size gives more accurate gradient
-bs = 1
+# lager block size gives more accurate gradient
 N_init = 500
 lr = 0.5
-kernel = BBMM.RBF()
-bbmm = BBMM.BBMM(kernel, nGPU=1, file=None, verbose=False)
-#bbmm.initialize(X, lengthscale, variance, noise, batch=batch, init_lr=lr, clamp_noise=1e-5)
-bbmm.initialize(X, lengthscale, variance, noise, batch=batch)
-bbmm.verbose = True
-bbmm.set_preconditioner(N_init, nGPU=0)
-woodbuery_vec_iter = bbmm.solve_iter(Y, thres=thres, block_size=bs, compute_gradient=True, random_seed=0, compute_loglikelihood=False, lanczos_n_iter=20, debug=False, max_iter=1000)
-assert bbmm.converged
-pred = bbmm.predict(X, woodbuery_vec_iter, training=True)
-print("MAX Error:", np.max(np.abs(pred - Y)))
+
+
+class Test(unittest.TestCase):
+    def _run(self, nGPU, kern):
+        kernel = kern()
+        bbmm = BBMM.BBMM(kernel, nGPU=nGPU, file=None, verbose=False)
+        bbmm.initialize(X, lengthscale, variance, noise, batch=batch)
+        #bbmm.verbose = True
+        bbmm.set_preconditioner(N_init, nGPU=0)
+        woodbuery_vec_iter = bbmm.solve_iter(Y)
+        self.assertTrue(bbmm.converged)
+        pred = bbmm.predict(X, woodbuery_vec_iter, training=True)
+        err = np.max(np.abs(pred - Y))
+        self.assertTrue(err < 1e-5)
+
+    def test_CPU_RBF(self):
+        self._run(0, BBMM.kern.RBF)
+
+    def test_GPU_RBF(self):
+        self._run(1, BBMM.kern.RBF)
+
+    def test_CPU_Matern32(self):
+        self._run(0, BBMM.kern.Matern32)
+
+    def test_GPU_Matern32(self):
+        self._run(1, BBMM.kern.Matern32)
+
+    def test_CPU_Matern52(self):
+        self._run(0, BBMM.kern.Matern52)
+
+    def test_GPU_Matern52(self):
+        self._run(1, BBMM.kern.Matern52)
+
+
+if __name__ == '__main__':
+    unittest.main()

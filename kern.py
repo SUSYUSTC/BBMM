@@ -1,46 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import cupy as cp
-
-
-class Cache(object):
-    def __init__(self, group='default'):
-        self.group = group
-
-    def __call__(self, f):
-        def g(*args, **kwargs):
-            self_f = args[0]
-            name = f.__name__
-
-            if not hasattr(self_f, 'cache'):
-                self_f.cache = {}
-            if not hasattr(self_f, 'cache_data'):
-                self_f.cache_data = {}
-            if name not in self_f.cache_data:
-                self_f.cache_data[name] = {}
-            this_func_cache_data = self_f.cache_data[name]
-
-            if 'cache' in kwargs:
-                this_cache = kwargs['cache']
-            else:
-                this_cache = self_f.cache
-            self_f.cache = this_cache
-
-            if self.group in this_cache:
-                keyname = this_cache[self.group]
-                if keyname not in this_func_cache_data:
-                    if 'cache' in kwargs:
-                        del kwargs['cache']
-                    this_func_cache_data[keyname] = f(*args, **kwargs)
-                else:
-                    pass
-                return this_func_cache_data[keyname]
-            else:
-                if 'cache' in kwargs:
-                    del kwargs['cache']
-                return f(*args, **kwargs)
-        g.__name__ = f.__name__
-        return g
+from .cache import Cache
 
 
 class Kernel(object):
@@ -69,22 +30,20 @@ class Kernel(object):
     def d3K_dXdX2dv(self, X1, dX1, dX2, X2=None):
         raise NotImplementedError
 
+    def clear_cache():
+        raise NotImplementedError
+
 
 class Stationary(Kernel):
     def __init__(self):
         super().__init__()
+        self.default_cache = {'g': 0}
 
     def set_lengthscale(self, lengthscale):
         self.lengthscale = lengthscale
 
     def set_variance(self, variance):
         self.variance = variance
-
-    def grad(self, X1, X2=None):
-        return {
-            'lengthscale': self.dK_dlengthscale(X1, X2),
-            'variance': self.dK_dvariance(X1, X2)
-        }
 
     def K_of_r(self, r):
         raise NotImplementedError
@@ -154,7 +113,6 @@ class Stationary(Kernel):
     def d2r_dXdX2(self, X1, X2, dX1, dX2, r):
         if X2 is None:
             X2 = X1
-        xp = cp.get_array_module(X1)
         return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T) / self.lengthscale ** 2) / r
         #return 0
 
@@ -239,13 +197,23 @@ class Stationary(Kernel):
     def d3K_dXdX2dv(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.d2K_drdv, self.d3K_drdrdv, X1, dX1, dX2, X2=X2)
 
+    def K_0(self, dX):
+        xp = cp.get_array_module(dX)
+        return xp.ones((dX.shape[0],)) * self.variance
+
     def d2K_dXdX_0(self, dX):
         xp = cp.get_array_module(dX)
         return -xp.sum(dX**2, axis=1) * self.dK_dR0_0() * 2
 
-    def K_0(self, dX):
+    def dK_dl_0(self, dX):
         xp = cp.get_array_module(dX)
-        return xp.ones((dX.shape[0],)) * self.variance
+        return xp.zeros((dX.shape[0],))
+
+    def d3K_dldXdX_0(self, dX):
+        return - self.d2K_dXdX_0(dX) * 2 / self.lengthscale
+
+    def clear_cache(self):
+        self.cache_data = {}
 
 
 class RBF(Stationary):

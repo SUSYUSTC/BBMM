@@ -6,3 +6,5 @@ from .kern import Matern32
 from .kern import Matern52
 from .opt import Adam
 from .gp import GP
+from .adv_kern import FullDerivative
+from .adv_kern import Derivative
