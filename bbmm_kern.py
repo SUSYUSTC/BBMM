@@ -1,6 +1,11 @@
-import cupy as cp
+import numpy as np
+try:
+    import cupy as cp
+    gpu_available = True
+except BaseException:
+    gpu_available = False
+    xp = np
 from GPy.core.parameterization import Param
-import GPy
 from .kern import Kern
 
 
@@ -32,7 +37,8 @@ class GPyKern(Kern):
     def update_gradients_full(self, dL_dK, X, X2):
         dl = self.dK_dl(X, X2)
         dv = self.dK_dv(X, X2)
-        xp = cp.get_array_module(X)
+        if gpu_available:
+            xp = cp.get_array_module(X)
         self.variance.gradient = xp.sum(dv * dL_dK)
         self.lengthscale.gradient = xp.sum(dl * dL_dK)
 

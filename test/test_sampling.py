@@ -1,6 +1,5 @@
 import BBMM
 import numpy as np
-import cupy as cp
 import GPy
 import unittest
 
@@ -40,7 +39,10 @@ class Test(unittest.TestCase):
         err_pred = np.max(np.abs(pred - Y))
         self.assertTrue(err_pred < 1e-6)
 
-        random_vectors = cp.asnumpy(bbmm.random_vectors)
+        try:
+            random_vectors = bbmm.random_vectors.get()
+        except BaseException:
+            random_vectors = bbmm.random_vectors
         sampled_tr_I = np.sum(bbmm.Knoise_inv.dot(random_vectors) * random_vectors, axis=0)
         tr_I = np.mean(sampled_tr_I)
         # 1e-8

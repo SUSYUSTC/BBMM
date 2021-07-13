@@ -33,7 +33,12 @@ Aside from the condition number, increasing block size used in block conjugate g
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
-import cupy as cp
+try:
+    import cupy as cp
+    gpu_available = True
+except BaseException:
+    gpu_available = False
+    xp = np
 from .krylov import Krylov
 from .preconditioner import Preconditioner_Nystroem
 import numpy.linalg as LA
@@ -255,7 +260,8 @@ class BBMM(object):
             return self.mv_Knoise(vec)
 
     def _matrix_multiple(self, method, *vs):
-        xp = cp.get_array_module(vs[0])
+        if gpu_available:
+            xp = cp.get_array_module(vs[0])
         lengths = np.array([v.shape[1] for v in vs])
         cumsum = np.cumsum(lengths)[:-1].tolist()
         result = method(xp.concatenate(vs, axis=1))

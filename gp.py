@@ -1,5 +1,4 @@
 import numpy as np
-import cupy as cp
 from . import kern
 import time
 
@@ -10,6 +9,7 @@ class GP(object):
         self.noise = noise
         self.GPU = GPU
         if GPU:
+            import cupy as cp
             self.xp = cp
             import cupyx
             import cupyx.scipy.linalg

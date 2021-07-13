@@ -1,4 +1,9 @@
-import cupy as cp
+import numpy as np
+try:
+    import cupy as cp
+    gpu_available = True
+except BaseException:
+    gpu_available = False
 import numpy.linalg as LA
 import time
 
@@ -9,7 +14,10 @@ class Krylov(object):
         self.b = b
         self.thres = thres
         self.lanczos_n_iter = lanczos_n_iter
-        self.xp = cp.get_array_module(self.b)
+        if gpu_available:
+            self.xp = cp.get_array_module(self.b)
+        else:
+            self.xp = np
         self.callback = callback
         self.debug = debug
         self.max_iter = max_iter

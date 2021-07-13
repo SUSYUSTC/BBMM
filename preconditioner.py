@@ -1,7 +1,12 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
-import cupy as cp
+try:
+    import cupy as cp
+    gpu_available = True
+except BaseException:
+    gpu_available = False
+    xp = np
 import time
 
 
@@ -141,7 +146,8 @@ class Preconditioner_Nystroem(object):
         ----------
         v: k*s array.
         '''
-        xp = cp.get_array_module(v)
+        if gpu_available:
+            xp = cp.get_array_module(v)
         result = v
         t1 = time.time()
         result = self.dot(result, True)
@@ -166,7 +172,8 @@ class Preconditioner_Nystroem(object):
         ----------
         v: k*s array.
         '''
-        xp = cp.get_array_module(v)
+        if gpu_available:
+            xp = cp.get_array_module(v)
         result = v
         t1 = time.time()
         result = self.dot(result, True)
@@ -182,5 +189,3 @@ class Preconditioner_Nystroem(object):
         self.total_time_eigvals += t3 - t2
         self.total_time_eigvecs += t4 - t3
         return result + v * xp.sqrt(self.reg)
-
-

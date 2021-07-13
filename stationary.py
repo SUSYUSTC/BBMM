@@ -1,6 +1,12 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-import cupy as cp
+import numpy as np
+try:
+    import cupy as cp
+    gpu_available = True
+except BaseException:
+    gpu_available = False
+    xp = np
 from .kernel import Kernel
 from .cache import Cache
 
@@ -38,7 +44,8 @@ class Stationary(Kernel):
         X1: N*f array.
         X2: None or N*f array. X2=X1 if None is specified.
         '''
-        xp = cp.get_array_module(X1)
+        if gpu_available:
+            xp = cp.get_array_module(X1)
         if X2 is None:
             X2 = X1
         N1 = len(X1)
@@ -60,12 +67,14 @@ class Stationary(Kernel):
 
     @Cache('gd1')
     def Xdiff_dX(self, X1, X2, dX1):
-        xp = cp.get_array_module(X1)
+        if gpu_available:
+            xp = cp.get_array_module(X1)
         return xp.sum((X1[:, None, :] - X2[None, :, :]) * dX1[:, None, :], axis=-1)
 
     @Cache('gd2')
     def Xdiff_dX2(self, X1, X2, dX2):
-        xp = cp.get_array_module(X1)
+        if gpu_available:
+            xp = cp.get_array_module(X1)
         return xp.sum((X2[None, :, :] - X1[:, None, :]) * dX2[None, :, :], axis=-1)
 
     @Cache('gd1')
@@ -169,15 +178,18 @@ class Stationary(Kernel):
         return self._fake_d2K_dXdX2(self.d2K_drdv, self.d3K_drdrdv, X1, dX1, dX2, X2=X2)
 
     def K_0(self, dX):
-        xp = cp.get_array_module(dX)
+        if gpu_available:
+            xp = cp.get_array_module(dX)
         return xp.ones((dX.shape[0],)) * self.variance
 
     def d2K_dXdX_0(self, dX):
-        xp = cp.get_array_module(dX)
+        if gpu_available:
+            xp = cp.get_array_module(dX)
         return -xp.sum(dX**2, axis=1) * self.dK_dR0_0() * 2
 
     def dK_dl_0(self, dX):
-        xp = cp.get_array_module(dX)
+        if gpu_available:
+            xp = cp.get_array_module(dX)
         return xp.zeros((dX.shape[0],))
 
     def d3K_dldXdX_0(self, dX):
@@ -223,22 +235,26 @@ class RBF(Stationary):
 
     @Cache('g')
     def K_of_r(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         return xp.exp(-r**2 / 2) * self.variance
 
     @Cache('g')
     def dK_dr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         return -xp.exp(-r**2 / 2) * r * self.variance
 
     @Cache('g')
     def d2K_drdr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         return xp.exp(-r**2 / 2) * (r**2 - 1) * self.variance
 
     @Cache('g')
     def d3K_drdrdr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         return xp.exp(-r**2 / 2) * (3 - r**2) * r * self.variance
 
     def dK_dR0_0(self):
@@ -272,19 +288,22 @@ class Matern32(Stationary):
 
     @Cache('g')
     def dK_dr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s3 = xp.sqrt(3.)
         return - 3 * r * xp.exp(-s3 * r) * self.variance
 
     @Cache('g')
     def d2K_drdr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s3 = xp.sqrt(3.)
         return (s3 * r - 1) * 3 * xp.exp(-s3 * r) * self.variance
 
     @Cache('g')
     def d3K_drdrdr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s3 = xp.sqrt(3.)
         return (s3 * 2 - r * 3) * 3 * xp.exp(-s3 * r) * self.variance
 
@@ -313,25 +332,29 @@ class Matern52(Stationary):
 
     @Cache('g')
     def K_of_r(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s5 = xp.sqrt(5)
         return (1 + s5 * r + 5. / 3 * r**2) * xp.exp(-s5 * r) * self.variance
 
     @Cache('g')
     def dK_dr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s5 = xp.sqrt(5)
         return (- 5.0 / 3 * r - 5. * s5 / 3 * r**2) * xp.exp(-s5 * r) * self.variance
 
     @Cache('g')
     def d2K_drdr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s5 = xp.sqrt(5)
         return (-1 - s5 * r + 5. * r**2) * 5 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
 
     @Cache('g')
     def d3K_drdrdr(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
         s5 = xp.sqrt(5)
         return (3 * r - s5 * r**2) * 25 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
 
