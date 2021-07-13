@@ -38,7 +38,6 @@ try:
     gpu_available = True
 except BaseException:
     gpu_available = False
-    xp = np
 from .krylov import Krylov
 from .preconditioner import Preconditioner_Nystroem
 import numpy.linalg as LA
@@ -262,6 +261,8 @@ class BBMM(object):
     def _matrix_multiple(self, method, *vs):
         if gpu_available:
             xp = cp.get_array_module(vs[0])
+        else:
+            xp = np
         lengths = np.array([v.shape[1] for v in vs])
         cumsum = np.cumsum(lengths)[:-1].tolist()
         result = method(xp.concatenate(vs, axis=1))

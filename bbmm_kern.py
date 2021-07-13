@@ -4,7 +4,6 @@ try:
     gpu_available = True
 except BaseException:
     gpu_available = False
-    xp = np
 from GPy.core.parameterization import Param
 from .kern import Kern
 
@@ -39,6 +38,8 @@ class GPyKern(Kern):
         dv = self.dK_dv(X, X2)
         if gpu_available:
             xp = cp.get_array_module(X)
+        else:
+            xp = np
         self.variance.gradient = xp.sum(dv * dL_dK)
         self.lengthscale.gradient = xp.sum(dl * dL_dK)
 

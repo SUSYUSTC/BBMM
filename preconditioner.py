@@ -6,7 +6,6 @@ try:
     gpu_available = True
 except BaseException:
     gpu_available = False
-    xp = np
 import time
 
 
@@ -148,6 +147,8 @@ class Preconditioner_Nystroem(object):
         '''
         if gpu_available:
             xp = cp.get_array_module(v)
+        else:
+            xp = np
         result = v
         t1 = time.time()
         result = self.dot(result, True)
@@ -174,6 +175,8 @@ class Preconditioner_Nystroem(object):
         '''
         if gpu_available:
             xp = cp.get_array_module(v)
+        else:
+            xp = np
         result = v
         t1 = time.time()
         result = self.dot(result, True)
