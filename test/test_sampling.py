@@ -14,7 +14,7 @@ batch = min(4096, N)
 thres = 1e-6
 N_init = 500
 bs = 100
-BBMM_kernels = [BBMM.RBF(), BBMM.Matern32(), BBMM.Matern52()]
+BBMM_kernels = [BBMM.kern.RBF(), BBMM.kern.Matern32(), BBMM.kern.Matern52()]
 GPy_kernels = [GPy.kern.RBF, GPy.kern.Matern32, GPy.kern.Matern52]
 
 

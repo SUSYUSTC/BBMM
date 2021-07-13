@@ -1,5 +1,6 @@
 import numpy as np
 import cupy as cp
+from . import kern
 import time
 
 
@@ -41,6 +42,29 @@ class GP(object):
                 self.ll = self.ll.get()
                 self.gradient = self.gradient.get()
 
+    def save(self, path):
+        data = {
+            'kernel': self.kernel.to_dict(),
+            'X': self.X,
+            'Y': self.Y,
+            'w': self.w,
+            'noise': self.noise
+        }
+        np.savez(path, **data)
+
+    @classmethod
+    def load(self, path):
+        data = dict(np.load(path, allow_pickle=True))
+        result = GP.__new__(GP)
+        kernel_dict = data['kernel'][()]
+        kern_type = kern.get_kernel(kernel_dict['name'])
+        result.kernel = kern_type.from_dict(kernel_dict)
+        result.X = data['X']
+        result.Y = data['Y']
+        result.w = data['w']
+        result.noise = data['noise'][()]
+        return result
+
     def predict(self, X):
         return self.kernel.K(X, self.X, cache={}).dot(self.w)
 
@@ -65,6 +89,7 @@ class GP(object):
 
     def optimize(self, messages=False, tol=1e-6):
         import scipy
+        import scipy.optimize
         if messages:
             callback = self.opt_callback
         else:

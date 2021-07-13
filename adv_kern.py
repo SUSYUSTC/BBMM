@@ -1,24 +1,29 @@
 import numpy as np
 import cupy as cp
-from .kern import Kernel
+from .kernel import Kernel
+from . import kern
 from .cache import Cache
 
 
 class FullDerivative(Kernel):
-    def __init__(self, kern, n, d):
+    def __init__(self, kernel, n, d):
         self.n = n
         self.d = d
+        self.input_dim = (n + 1) * d
         self.dim_K = slice(0, self.d)
         self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
-        self.kern = kern
+        self.kern = kernel
         self.kernel = self.kern()
         self.default_cache = {}
+        self.name = 'BBMM.kern.FullDerivative'
 
     def set_lengthscale(self, lengthscale):
         self.kernel.set_lengthscale(lengthscale)
+        self.lengthscale = lengthscale
 
     def set_variance(self, variance):
         self.kernel.set_variance(variance)
+        self.variance = variance
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
         xp = cp.get_array_module(X)
@@ -70,22 +75,46 @@ class FullDerivative(Kernel):
         self.cache_data = {}
         self.kernel.cache_data = {}
 
+    def to_dict(self):
+        data = {
+            'name': self.name,
+            'n': self.n,
+            'd': self.d,
+            'kern': self.kernel.to_dict()
+        }
+        return data
+
+    @classmethod
+    def from_dict(self, data):
+        n = data['n']
+        d = data['d']
+        kern_dict = data['kern']
+        kernel_type = eval(kern_dict['name'])
+        result = FullDerivative(kernel_type, n, d)
+        result.set_lengthscale(kern_dict['lengthscale'])
+        result.set_variance(kern_dict['variance'])
+        return result
+
 
 class Derivative(Kernel):
-    def __init__(self, kern, n, d):
+    def __init__(self, kernel, n, d):
         self.n = n
         self.d = d
+        self.input_dim = (n + 1) * d
         self.dim_K = slice(0, self.d)
         self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
-        self.kern = kern
+        self.kern = kernel
         self.kernel = self.kern()
         self.default_cache = {}
+        self.name = 'BBMM.kern.Derivative'
 
     def set_lengthscale(self, lengthscale):
         self.kernel.set_lengthscale(lengthscale)
+        self.lengthscale = lengthscale
 
     def set_variance(self, variance):
         self.kernel.set_variance(variance)
+        self.variance = variance
 
     def _fake_K(self, X, X2, d2K_dXdX2):
         xp = cp.get_array_module(X)
@@ -129,3 +158,23 @@ class Derivative(Kernel):
     def clear_cache(self):
         self.cache_data = {}
         self.kernel.cache_data = {}
+
+    def to_dict(self):
+        data = {
+            'name': self.name,
+            'n': self.n,
+            'd': self.d,
+            'kern': self.kernel.to_dict()
+        }
+        return data
+
+    @classmethod
+    def from_dict(self, data):
+        n = data['n']
+        d = data['d']
+        kern_dict = data['kern']
+        kernel_type = eval(kern_dict['name'])
+        result = Derivative(kernel_type, n, d)
+        result.set_lengthscale(kern_dict['lengthscale'])
+        result.set_variance(kern_dict['variance'])
+        return result

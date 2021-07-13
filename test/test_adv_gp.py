@@ -103,10 +103,10 @@ Y = y(X)
 class Test(unittest.TestCase):
     def _run(self, kernelname):
         kn = NumericalDerivativeKernel((n + 1) * d, n, getattr(GPy.kern, kernelname), lengthscale=lengthscale, variance=variance, diff=1e-4)
-        ka = BBMM.FullDerivative(getattr(BBMM.kern, kernelname), n, d)
+        ka = BBMM.kern.FullDerivative(getattr(BBMM.kern, kernelname), n, d)
         ka.set_lengthscale(lengthscale)
         ka.set_variance(variance)
-        kda = BBMM.Derivative(getattr(BBMM.kern, kernelname), n, d)
+        kda = BBMM.kern.Derivative(getattr(BBMM.kern, kernelname), n, d)
         kda.set_lengthscale(lengthscale)
         kda.set_variance(variance)
         err_K_diag = np.max(np.abs(np.diag(ka.K(X)) - ka.Kdiag(X)))
