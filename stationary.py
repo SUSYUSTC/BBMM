@@ -301,7 +301,10 @@ class Matern32(Stationary):
 
     @Cache('g')
     def K_of_r(self, r):
-        xp = cp.get_array_module(r)
+        if gpu_available:
+            xp = cp.get_array_module(r)
+        else:
+            xp = np
         s3 = xp.sqrt(3.)
         return (1. + s3 * r) * xp.exp(-s3 * r) * self.variance
 
