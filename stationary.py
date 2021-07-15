@@ -72,7 +72,8 @@ class Stationary(Kernel):
             xp = cp.get_array_module(X1)
         else:
             xp = np
-        return xp.sum((X1[:, None, :] - X2[None, :, :]) * dX1[:, None, :], axis=-1)
+        return xp.sum(X1*dX1, axis=1)[:, None] - dX1.dot(X2.T)
+        #return xp.sum((X1[:, None, :] - X2[None, :, :]) * dX1[:, None, :], axis=-1)
 
     @Cache('gd2')
     def Xdiff_dX2(self, X1, X2, dX2):
@@ -80,7 +81,8 @@ class Stationary(Kernel):
             xp = cp.get_array_module(X1)
         else:
             xp = np
-        return xp.sum((X2[None, :, :] - X1[:, None, :]) * dX2[None, :, :], axis=-1)
+        return xp.sum(X2*dX2, axis=1)[None, :] - X1.dot(dX2.T)
+        #return xp.sum((X2[None, :, :] - X1[:, None, :]) * dX2[None, :, :], axis=-1)
 
     @Cache('gd1')
     def dr_dX(self, X1, X2, dX1, r):
