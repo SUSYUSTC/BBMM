@@ -61,5 +61,5 @@ class GPyKern(Kern):
     def _build_from_input_dict(self, data):
         kern_dict = data['kern']
         import BBMM
-        kernel = eval(kern_dict['name']).from_dict(kern_dict)
+        kernel = BBMM.kern.get_kern(kern_dict['name']).from_dict(kern_dict)
         return GPyKern(kernel, variance=kernel.variance, lengthscale=kernel.lengthscale, active_dims=data['active_dims'])

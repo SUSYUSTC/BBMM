@@ -242,7 +242,7 @@ class RBF(Stationary):
 
     def __init__(self):
         super().__init__()
-        self.name = 'kern.RBF'
+        self.name = 'stationary.RBF'
 
     @Cache('g')
     def K_of_r(self, r):
@@ -297,7 +297,7 @@ class Matern32(Stationary):
 
     def __init__(self):
         super().__init__()
-        self.name = 'kern.Matern32'
+        self.name = 'stationary.Matern32'
 
     @Cache('g')
     def K_of_r(self, r):
@@ -353,7 +353,7 @@ class Matern52(Stationary):
 
     def __init__(self):
         super().__init__()
-        self.name = 'kern.Matern52'
+        self.name = 'stationary.Matern52'
 
     @Cache('g')
     def K_of_r(self, r):

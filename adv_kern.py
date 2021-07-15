@@ -6,6 +6,7 @@ except BaseException:
     gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
+from . import stationary
 
 
 class FullDerivative(Kernel):
@@ -18,7 +19,7 @@ class FullDerivative(Kernel):
         self.kern = kernel
         self.kernel = self.kern()
         self.default_cache = {}
-        self.name = 'BBMM.kern.FullDerivative'
+        self.name = 'adv_kern.FullDerivative'
 
     def set_lengthscale(self, lengthscale):
         self.kernel.set_lengthscale(lengthscale)
@@ -118,7 +119,7 @@ class Derivative(Kernel):
         self.kern = kernel
         self.kernel = self.kern()
         self.default_cache = {}
-        self.name = 'BBMM.kern.Derivative'
+        self.name = 'adv_kern.Derivative'
 
     def set_lengthscale(self, lengthscale):
         self.kernel.set_lengthscale(lengthscale)

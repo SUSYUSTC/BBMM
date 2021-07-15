@@ -22,7 +22,7 @@ class Test(unittest.TestCase):
         lr = 0.5
         opt = BBMM.Adam(lengthscale, variance, noise, clamp_noise=1e-5, init_lr=lr)
         while True:
-            kernel = BBMM.RBF()
+            kernel = BBMM.kern.RBF()
             bbmm = BBMM.BBMM(kernel, nGPU=1, file=None, verbose=False)
             bbmm.initialize(X, opt.lengthscale, opt.variance, opt.noise, batch=batch)
             bbmm.set_preconditioner(N_init, nGPU=0)
@@ -46,7 +46,7 @@ class Test(unittest.TestCase):
         self.assertTrue(np.abs(opt.lengthscale - 3.15) < 0.1)
         self.assertTrue(np.abs(opt.variance - 1300) < 50)
         self.assertTrue(np.abs(opt.noise - 0.013) < 0.001)
-        kernel = BBMM.RBF()
+        kernel = BBMM.kern.RBF()
         bbmm = BBMM.BBMM(kernel, nGPU=1, file=None, verbose=False)
         bbmm.initialize(X, opt.lengthscale, opt.variance, opt.noise, batch=batch)
         bbmm.set_preconditioner(N_init, nGPU=0)
