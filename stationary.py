@@ -98,7 +98,6 @@ class Stationary(Kernel):
         r = self.r(X1, X2)
         return self.K_of_r(r)
 
-    @Cache('gd1')
     def Xdiff_dX(self, X1, X2, dX1):
         if gpu_available:
             xp = cp.get_array_module(X1)
@@ -107,7 +106,6 @@ class Stationary(Kernel):
         return xp.sum(X1*dX1, axis=1)[:, None] - dX1.dot(X2.T)
         #return xp.sum((X1[:, None, :] - X2[None, :, :]) * dX1[:, None, :], axis=-1)
 
-    @Cache('gd2')
     def Xdiff_dX2(self, X1, X2, dX2):
         if gpu_available:
             xp = cp.get_array_module(X1)
@@ -128,7 +126,6 @@ class Stationary(Kernel):
             X2 = X1
         return self.Xdiff_dX2(X1, X2, dX2) / r / self.lengthscale ** 2
 
-    @Cache('gdd')
     def d2r_dXdX2(self, X1, X2, dX1, dX2, r):
         if X2 is None:
             X2 = X1
@@ -178,41 +175,41 @@ class Stationary(Kernel):
         return method2(r) * self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) + method1(r) * self.d2r_dXdX2(X1, X2, dX1, dX2, r)
 
     # Start K
-    @Cache('gd1')
+    @Cache('no')
     def dK_dX(self, X1, dX1, X2=None):
         return self._fake_dK_dX(self.dK_dr, X1, dX1, X2=X2)
 
-    @Cache('dg2')
+    @Cache('no')
     def dK_dX2(self, X1, dX2, X2=None):
         return self._fake_dK_dX2(self.dK_dr, X1, dX2, X2=X2)
 
-    @Cache('gdd')
+    @Cache('no')
     def d2K_dXdX2(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.dK_dr, self.d2K_drdr, X1, dX1, dX2, X2=X2)
 
     # Start dK_dl
-    @Cache('gd1')
+    @Cache('no')
     def d2K_dXdl(self, X1, dX1, X2=None):
         return self._fake_dK_dX(self.d2K_drdl, X1, dX1, X2=X2)
 
-    @Cache('dg2')
+    @Cache('no')
     def d2K_dX2dl(self, X1, dX2, X2=None):
         return self._fake_dK_dX2(self.d2K_drdl, X1, dX2, X2=X2)
 
-    @Cache('dgg')
+    @Cache('no')
     def d3K_dXdX2dl(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.d2K_drdl, self.d3K_drdrdl, X1, dX1, dX2, X2=X2)
 
     # Start dK_dv
-    @Cache('dg1')
+    @Cache('no')
     def d2K_dXdv(self, X1, dX1, X2=None):
         return self._fake_dK_dX(self.d2K_drdv, X1, dX1, X2=X2)
 
-    @Cache('dg2')
+    @Cache('no')
     def d2K_dX2dv(self, X1, dX2, X2=None):
         return self._fake_dK_dX2(self.d2K_drdv, X1, dX2, X2=X2)
 
-    @Cache('dgg')
+    @Cache('no')
     def d3K_dXdX2dv(self, X1, dX1, dX2, X2=None):
         return self._fake_d2K_dXdX2(self.d2K_drdv, self.d3K_drdrdv, X1, dX1, dX2, X2=X2)
 
