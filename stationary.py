@@ -104,7 +104,6 @@ class Stationary(Kernel):
         else:
             xp = np
         return xp.sum(X1*dX1, axis=1)[:, None] - dX1.dot(X2.T)
-        #return xp.sum((X1[:, None, :] - X2[None, :, :]) * dX1[:, None, :], axis=-1)
 
     def Xdiff_dX2(self, X1, X2, dX2):
         if gpu_available:
@@ -112,7 +111,6 @@ class Stationary(Kernel):
         else:
             xp = np
         return xp.sum(X2*dX2, axis=1)[None, :] - X1.dot(dX2.T)
-        #return xp.sum((X2[None, :, :] - X1[:, None, :]) * dX2[None, :, :], axis=-1)
 
     @Cache('gd1')
     def dr_dX(self, X1, X2, dX1, r):
@@ -130,7 +128,6 @@ class Stationary(Kernel):
         if X2 is None:
             X2 = X1
         return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T) / self.lengthscale ** 2) / r
-        #return 0
 
     @Cache('g')
     def dr_dl(self, r):
