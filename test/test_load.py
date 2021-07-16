@@ -30,8 +30,11 @@ bbmm_covariance_kernels = {'rbf': BBMM.kern.RBF, 'matern32': BBMM.kern.Matern32,
 
 class Test(unittest.TestCase):
     def _run(self, kernelname):
-        bbmm_kernel = BBMM.kern.FullDerivative(bbmm_covariance_kernels[kernelname], 3, d)
-        kern = GPy.kern.src.bbmm_kern.GPyKern(bbmm_kernel, variance=variance, lengthscale=lengthscale)
+        stationary = bbmm_covariance_kernels[kernelname]()
+        stationary.set_lengthscale(lengthscale)
+        stationary.set_variance(variance)
+        bbmm_kernel = BBMM.kern.FullDerivative(stationary, 3, d)
+        kern = GPy.kern.src.bbmm_kern.GPyKern(bbmm_kernel)
         model = GPy.models.GPRegression(X, Y, kernel=kern, noise_var=1e-4)
         model.optimize()
         model_dict = {

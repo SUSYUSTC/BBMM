@@ -9,23 +9,21 @@ from .kern import Kern
 
 
 class GPyKern(Kern):
-    def __init__(self, kernel, variance=1.0, lengthscale=1.0, active_dims=None):
+    def __init__(self, kernel, active_dims=None):
         super(GPyKern, self).__init__(kernel.input_dim, active_dims, 'BBMM')
         self.kernel = kernel
-        self.kernel.set_lengthscale(lengthscale)
-        self.kernel.set_variance(variance)
-        self.variance = Param('variance', variance)
-        self.lengthscale = Param('lengthscale', lengthscale)
+        self.variance = Param('variance', kernel.ps[0])
+        self.lengthscale = Param('lengthscale', kernel.ps[1])
         self.link_parameters(self.variance, self.lengthscale)
 
     def K(self, X, X2=None):
         return self.kernel.K(X, X2)
 
-    def dK_dl(self, X, X2=None):
-        return self.kernel.dK_dl(X, X2)
-
     def dK_dv(self, X, X2=None):
-        return self.kernel.dK_dv(X, X2)
+        return self.kernel.dK_dps[0](X, X2)
+
+    def dK_dl(self, X, X2=None):
+        return self.kernel.dK_dps[1](X, X2)
 
     def Kdiag(self, X):
         return self.kernel.Kdiag(X)
@@ -45,8 +43,8 @@ class GPyKern(Kern):
 
     def parameters_changed(self):
         # nothing todo here
-        self.kernel.set_variance(self.variance[0])
-        self.kernel.set_lengthscale(self.lengthscale[0])
+        self.kernel.set_ps[0](self.variance[0])
+        self.kernel.set_ps[1](self.lengthscale[0])
         self.kernel.clear_cache()
         pass
 
@@ -61,5 +59,5 @@ class GPyKern(Kern):
     def _build_from_input_dict(self, data):
         kern_dict = data['kern']
         import BBMM
-        kernel = BBMM.kern.get_kern(kern_dict['name']).from_dict(kern_dict)
-        return GPyKern(kernel, variance=kernel.variance, lengthscale=kernel.lengthscale, active_dims=data['active_dims'])
+        kernel = BBMM.kern.get_kern_obj(kern_dict)
+        return GPyKern(kernel, active_dims=data['active_dims'])

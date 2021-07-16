@@ -6,54 +6,39 @@ except BaseException:
     gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
-from . import stationary
+from . import kern
 
 
 class FullDerivative(Kernel):
     def __init__(self, kernel, n, d):
+        self.default_cache = {}
+        self.name = 'adv_kern.FullDerivative'
         self.n = n
         self.d = d
         self.input_dim = (n + 1) * d
         self.dim_K = slice(0, self.d)
         self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
-        self.kern = kernel
-        self.kernel = self.kern()
-        self.lengthscale = 1.0
-        self.variance = 1.0
-        self.ps = [self.variance, self.lengthscale]
-        self.set_ps = [self.set_variance, self.set_lengthscale]
-        self.transform_ps = [self.transform_variance, self.transform_lengthscale]
-        self.d_transform_ps = [self.d_transform_variance, self.d_transform_lengthscale]
-        self.default_cache = {}
-        self.name = 'adv_kern.FullDerivative'
+        self.kernel = kernel
+        self.ps = np.array(self.kernel.ps).copy()
+        self.set_ps = []
+        self.dK_dps = []
+        self.transform_ps = []
+        self.d_transform_ps = []
+        self.inv_transform_ps = []
+        for i in range(len(self.kernel.ps)):
+            def func(p, i=i):
+                self.kernel.set_ps[i](p)
+                self.ps = np.array(self.kernel.ps).copy()
+            self.set_ps.append(func)
 
-    def set_variance(self, variance):
-        self.kernel.set_variance(variance)
-        self.variance = variance
-        self.ps = [self.variance, self.lengthscale]
+            def func(X, X2=None, i=i, **kwargs):
+                return self.dK_dp(i, X, X2, **kwargs)
+            self.dK_dps.append(func)
 
-    def set_lengthscale(self, lengthscale):
-        self.kernel.set_lengthscale(lengthscale)
-        self.lengthscale = lengthscale
-        self.ps = [self.variance, self.lengthscale]
-
-    def transform_variance(self, variance):
-        return np.log(variance)
-
-    def transform_lengthscale(self, lengthscale):
-        return np.log(lengthscale)
-
-    def d_transform_variance(self, variance):
-        return 1/variance
-
-    def d_transform_lengthscale(self, lengthscale):
-        return 1/lengthscale
-
-    def inv_transform_variance(self, t_variance):
-        return np.exp(t_variance)
-
-    def inv_transform_lengthscale(self, t_lengthscale):
-        return np.exp(t_lengthscale)
+            self.transform_ps.append(lambda x: self.kernel.transform_ps[i](x))
+            self.d_transform_ps.append(lambda x: self.kernel.d_transform_ps[i](x))
+            self.inv_transform_ps.append(lambda x: self.kernel.inv_transform_ps[i](x))
+        self.check()
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
         if gpu_available:
@@ -84,12 +69,8 @@ class FullDerivative(Kernel):
         return self._fake_K(X, X2, self.kernel.K, self.kernel.dK_dX, self.kernel.dK_dX2, self.kernel.d2K_dXdX2)
 
     @Cache('g')
-    def dK_dl(self, X, X2=None):
-        return self._fake_K(X, X2, self.kernel.dK_dl, self.kernel.d2K_dXdl, self.kernel.d2K_dX2dl, self.kernel.d3K_dXdX2dl)
-
-    @Cache('g')
-    def dK_dv(self, X, X2=None):
-        return self._fake_K(X, X2, self.kernel.dK_dv, self.kernel.d2K_dXdv, self.kernel.d2K_dX2dv, self.kernel.d3K_dXdX2dv)
+    def dK_dp(self, i, X, X2=None):
+        return self._fake_K(X, X2, self.kernel.dK_dps[i], self.kernel.d2K_dpsdX[i], self.kernel.d2K_dpsdX2[i], self.kernel.d3K_dpsdXdX2[i])
 
     @Cache('g')
     def Kdiag(self, X):
@@ -112,7 +93,7 @@ class FullDerivative(Kernel):
 
     def clear_cache(self):
         self.cache_data = {}
-        self.kernel.cache_data = {}
+        self.kernel.clear_cache()
 
     def to_dict(self):
         data = {
@@ -128,10 +109,8 @@ class FullDerivative(Kernel):
         n = data['n']
         d = data['d']
         kern_dict = data['kern']
-        kernel_type = eval(kern_dict['name'])
-        result = FullDerivative(kernel_type, n, d)
-        result.set_lengthscale(kern_dict['lengthscale'])
-        result.set_variance(kern_dict['variance'])
+        kernel = kern.get_kern_obj(kern_dict)
+        result = FullDerivative(kernel, n, d)
         return result
 
 
@@ -170,10 +149,10 @@ class Derivative(Kernel):
         return np.log(lengthscale)
 
     def d_transform_variance(self, variance):
-        return 1/variance
+        return 1 / variance
 
     def d_transform_lengthscale(self, lengthscale):
-        return 1/lengthscale
+        return 1 / lengthscale
 
     def inv_transform_variance(self, t_variance):
         return np.exp(t_variance)

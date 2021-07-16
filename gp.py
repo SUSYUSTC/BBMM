@@ -56,8 +56,7 @@ class GP(object):
         data = dict(np.load(path, allow_pickle=True))
         result = GP.__new__(GP)
         kernel_dict = data['kernel'][()]
-        kern_type = kern.get_kernel(kernel_dict['name'])
-        result.kernel = kern_type.from_dict(kernel_dict)
+        result.kernel = kern.get_kern_obj(kernel_dict)
         result.X = data['X']
         result.Y = data['Y']
         result.w = data['w']
@@ -65,7 +64,8 @@ class GP(object):
         return result
 
     def predict(self, X):
-        return self.kernel.K(X, self.X, cache={}).dot(self.w)
+        self.kernel.clear_cache()
+        return self.kernel.K(X, self.X).dot(self.w)
 
     def update(self, ps, noise):
         for i in range(len(ps)):

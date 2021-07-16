@@ -7,10 +7,12 @@ except BaseException:
     gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
+from . import kern
 
 
 class ProductKernel(Kernel):
     def __init__(self, kern_list, dims=None):
+        self.name = 'kern_operation.ProductKernel'
         self.nk = len(kern_list)
         self.kern_list = kern_list
         self.nps = [len(k.ps) for k in self.kern_list]
@@ -29,8 +31,6 @@ class ProductKernel(Kernel):
         else:
             self.dims = dims
             assert len(self.dims) == self.nk
-        self.check()
-
         for i in range(len(self.ps)):
             kern_index, pos_index = self.get_pos(i)
 
@@ -39,13 +39,14 @@ class ProductKernel(Kernel):
                 self.ps = np.concatenate([k.ps for k in self.kern_list])
             self.set_ps.append(func)
 
-            def func(X, X2=None, i=i, cache={}):
-                return self.dK_dp(i, X, X2, cache=cache)
+            def func(X, X2=None, i=i, **kwargs):
+                return self.dK_dp(i, X, X2, **kwargs)
             self.dK_dps.append(func)
 
             self.transform_ps.append(lambda x: self.kern_list[kern_index].transform_ps[pos_index](x))
             self.d_transform_ps.append(lambda x: self.kern_list[kern_index].d_transform_ps[pos_index](x))
             self.inv_transform_ps.append(lambda x: self.kern_list[kern_index].inv_transform_ps[pos_index](x))
+        self.check()
 
     def get_pos(self, i):
         kern_index = len(np.where(self.cumsum <= i)[0]) - 1
@@ -92,3 +93,18 @@ class ProductKernel(Kernel):
     def clear_cache(self):
         self.cache_K = {}
         self.cache_dK_dp = {}
+        for i in range(self.nk):
+            self.kern_list[i].clear_cache()
+
+    def to_dict(self):
+        data = {
+            'kern_list': [k.to_dict() for k in self.kern_list],
+            'dims': self.dims,
+            'name': self.name,
+        }
+        return data
+
+    def from_dict(self, data):
+        kern_list = [kern.get_kern_obj(kerndata) for kerndata in data['kern_list']]
+        kernel = self(kern_list, dims=data['dims'])
+        return kernel

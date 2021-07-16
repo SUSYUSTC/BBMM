@@ -17,7 +17,7 @@ class Stationary(Kernel):
         self.dK_dps = [self.dK_dv, self.dK_dl]
         self.d2K_dpsdX = [self.d2K_dXdv, self.d2K_dXdl]
         self.d2K_dpsdX2 = [self.d2K_dX2dv, self.d2K_dX2dl]
-        self.d2K_dpsdXdX2 = [self.d3K_dXdX2dv, self.d3K_dXdX2dl]
+        self.d3K_dpsdXdX2 = [self.d3K_dXdX2dv, self.d3K_dXdX2dl]
         self.variance = 1.0
         self.lengthscale = 1.0
         self.ps = [self.variance, self.lengthscale]
