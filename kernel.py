@@ -3,25 +3,16 @@ class Kernel(object):
         self.cache = {}
         pass
 
+    def check(self):
+        assert hasattr(self, 'default_cache')
+        assert hasattr(self, 'ps')
+        assert hasattr(self, 'set_ps')
+        assert hasattr(self, 'dK_dps')
+        assert hasattr(self, 'transform_ps')
+        assert hasattr(self, 'd_transform_ps')
+        assert hasattr(self, 'inv_transform_ps')
+
     def K(self, X1, X2=None):
-        raise NotImplementedError
-
-    def dK_dl(self, X1, X2=None):
-        raise NotImplementedError
-
-    def dK_dv(self, X1, X2=None):
-        raise NotImplementedError
-
-    def d2K_dXdl(self, X1, dX1, X2=None):
-        raise NotImplementedError
-
-    def d2K_dXdv(self, X1, dX1, X2=None):
-        raise NotImplementedError
-
-    def d3K_dXdX2dl(self, X1, dX1, dX2, X2=None):
-        raise NotImplementedError
-
-    def d3K_dXdX2dv(self, X1, dX1, dX2, X2=None):
         raise NotImplementedError
 
     def clear_cache():

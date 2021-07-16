@@ -18,16 +18,42 @@ class FullDerivative(Kernel):
         self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
         self.kern = kernel
         self.kernel = self.kern()
+        self.lengthscale = 1.0
+        self.variance = 1.0
+        self.ps = [self.variance, self.lengthscale]
+        self.set_ps = [self.set_variance, self.set_lengthscale]
+        self.transform_ps = [self.transform_variance, self.transform_lengthscale]
+        self.d_transform_ps = [self.d_transform_variance, self.d_transform_lengthscale]
         self.default_cache = {}
         self.name = 'adv_kern.FullDerivative'
-
-    def set_lengthscale(self, lengthscale):
-        self.kernel.set_lengthscale(lengthscale)
-        self.lengthscale = lengthscale
 
     def set_variance(self, variance):
         self.kernel.set_variance(variance)
         self.variance = variance
+        self.ps = [self.variance, self.lengthscale]
+
+    def set_lengthscale(self, lengthscale):
+        self.kernel.set_lengthscale(lengthscale)
+        self.lengthscale = lengthscale
+        self.ps = [self.variance, self.lengthscale]
+
+    def transform_variance(self, variance):
+        return np.log(variance)
+
+    def transform_lengthscale(self, lengthscale):
+        return np.log(lengthscale)
+
+    def d_transform_variance(self, variance):
+        return 1/variance
+
+    def d_transform_lengthscale(self, lengthscale):
+        return 1/lengthscale
+
+    def inv_transform_variance(self, t_variance):
+        return np.exp(t_variance)
+
+    def inv_transform_lengthscale(self, t_lengthscale):
+        return np.exp(t_lengthscale)
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
         if gpu_available:
@@ -118,16 +144,42 @@ class Derivative(Kernel):
         self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
         self.kern = kernel
         self.kernel = self.kern()
+        self.lengthscale = 1.0
+        self.variance = 1.0
+        self.ps = [self.variance, self.lengthscale]
+        self.set_ps = [self.set_variance, self.set_lengthscale]
+        self.transform_ps = [self.transform_variance, self.transform_lengthscale]
+        self.d_transform_ps = [self.d_transform_variance, self.d_transform_lengthscale]
         self.default_cache = {}
         self.name = 'adv_kern.Derivative'
-
-    def set_lengthscale(self, lengthscale):
-        self.kernel.set_lengthscale(lengthscale)
-        self.lengthscale = lengthscale
 
     def set_variance(self, variance):
         self.kernel.set_variance(variance)
         self.variance = variance
+        self.ps = [self.variance, self.lengthscale]
+
+    def set_lengthscale(self, lengthscale):
+        self.kernel.set_lengthscale(lengthscale)
+        self.lengthscale = lengthscale
+        self.ps = [self.variance, self.lengthscale]
+
+    def transform_variance(self, variance):
+        return np.log(variance)
+
+    def transform_lengthscale(self, lengthscale):
+        return np.log(lengthscale)
+
+    def d_transform_variance(self, variance):
+        return 1/variance
+
+    def d_transform_lengthscale(self, lengthscale):
+        return 1/lengthscale
+
+    def inv_transform_variance(self, t_variance):
+        return np.exp(t_variance)
+
+    def inv_transform_lengthscale(self, t_lengthscale):
+        return np.exp(t_lengthscale)
 
     def _fake_K(self, X, X2, d2K_dXdX2):
         if gpu_available:

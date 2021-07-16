@@ -34,10 +34,9 @@ class GP(object):
             logdet = self.xp.linalg.slogdet(K_noise)[1]
             self.ll = - (self.Y.T.dot(self.w)[0, 0] + logdet) / 2 - self.xp.log(self.xp.pi * 2) * self.N / 2
             dL_dK = (self.w.dot(self.w.T) - K_noise_inv) / 2
-            dL_dl = self.xp.sum(dL_dK * self.kernel.dK_dl(self.X, cache=self.kernel.default_cache))
-            dL_dv = self.xp.sum(dL_dK * self.kernel.dK_dv(self.X, cache=self.kernel.default_cache))
+            dL_dps = [self.xp.sum(dL_dK * dK_dp(self.X, cache=self.kernel.default_cache)) for dK_dp in self.kernel.dK_dps]
             dL_dn = self.xp.trace(dL_dK)
-            self.gradient = self.xp.array([dL_dv, dL_dl, dL_dn])
+            self.gradient = self.xp.array(dL_dps + [dL_dn])
             if self.GPU:
                 self.ll = self.ll.get()
                 self.gradient = self.gradient.get()
@@ -68,24 +67,28 @@ class GP(object):
     def predict(self, X):
         return self.kernel.K(X, self.X, cache={}).dot(self.w)
 
-    def update(self, lengthscale, variance, noise):
-        self.kernel.set_lengthscale(lengthscale)
-        self.kernel.set_variance(variance)
+    def update(self, ps, noise):
+        for i in range(len(ps)):
+            self.kernel.set_ps[i](ps[i])
         self.noise = noise
         self.kernel.clear_cache()
-        self.params = np.array([variance, lengthscale, noise])
+        self.params = np.array(ps + [noise])
 
-    def objective(self, ps):
-        variance = np.exp(ps[0])
-        lengthscale = np.exp(ps[1])
-        noise = np.exp(ps[2])
-        self.update(lengthscale, variance, noise)
+    def objective(self, transform_ps_noise):
+        transform_ps = transform_ps_noise[0:-1]
+        ps = [self.kernel.inv_transform_ps[i](transform_ps[i]) for i in range(len(transform_ps))]
+        d_transform_ps = [self.kernel.d_transform_ps[i](ps[i]) for i in range(len(ps))]
+        transform_noise = transform_ps_noise[-1]
+        noise = np.exp(transform_noise)
+        d_transform_noise = 1 / noise
+        self.update(ps, noise)
         self.fit(grad=True)
-        result = (-self.ll, -self.gradient * np.exp(ps))
+        self.transform_gradient = self.gradient / np.array(d_transform_ps + [d_transform_noise])
+        result = (-self.ll, -self.transform_gradient)
         return result
 
     def opt_callback(self, x):
-        print('ll', np.format_float_scientific(-self.ll, precision=6), 'x', x, -self.gradient * np.exp(x))
+        print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient))
 
     def optimize(self, messages=False, tol=1e-6):
         import scipy
@@ -95,6 +98,8 @@ class GP(object):
         else:
             callback = None
         begin = time.time()
-        self.result = scipy.optimize.minimize(self.objective, np.log([self.kernel.variance, self.kernel.lengthscale, self.noise]), jac=True, method='L-BFGS-B', callback=callback, tol=tol)
+        transform_ps = [self.kernel.transform_ps[i](self.kernel.ps[i]) for i in range(len(self.kernel.ps))]
+        transform_noise = np.log(self.noise)
+        self.result = scipy.optimize.minimize(self.objective, transform_ps + [transform_noise], jac=True, method='L-BFGS-B', callback=callback, tol=tol)
         end = time.time()
         print('time', end - begin)
