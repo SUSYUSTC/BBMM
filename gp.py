@@ -23,17 +23,20 @@ class GP(object):
         self.N = len(Y)
 
     def fit(self, grad=False):
-        K = self.kernel.K(self.X, cache=self.kernel.default_cache)
-        K_noise = K + self.xp.eye(self.N) * self.noise
+        K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache) + self.xp.eye(self.N) * self.noise
         L = self.xp.linalg.cholesky(K_noise)
         w_int = self.xp_solve_triangular(L, self.Y, lower=True, trans=0)
         self.w = self.xp_solve_triangular(L, w_int, lower=True, trans=1)
         if grad:
-            Linv = self.xp_solve_triangular(L, self.xp.eye(self.N), lower=True, trans=0)
-            K_noise_inv = Linv.T.dot(Linv)
             logdet = self.xp.linalg.slogdet(K_noise)[1]
+            del K_noise
+            Linv = self.xp_solve_triangular(L, self.xp.eye(self.N), lower=True, trans=0)
+            del L
+            K_noise_inv = Linv.T.dot(Linv)
+            del Linv
             self.ll = - (self.Y.T.dot(self.w)[0, 0] + logdet) / 2 - self.xp.log(self.xp.pi * 2) * self.N / 2
             dL_dK = (self.w.dot(self.w.T) - K_noise_inv) / 2
+            del K_noise_inv
             dL_dps = [self.xp.sum(dL_dK * dK_dp(self.X, cache=self.kernel.default_cache)) for dK_dp in self.kernel.dK_dps]
             dL_dn = self.xp.trace(dL_dK)
             self.gradient = self.xp.array(dL_dps + [dL_dn])

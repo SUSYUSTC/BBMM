@@ -27,7 +27,9 @@ class Cache(object):
                     if 'cache' in kwargs:
                         del kwargs['cache']
                     this_func_cache_data[keyname] = f(*args, **kwargs)
+                    this_func_cache_data['used_time'] = 0
                 else:
+                    this_func_cache_data['used_time'] += 1
                     pass
                 return this_func_cache_data[keyname]
             else:

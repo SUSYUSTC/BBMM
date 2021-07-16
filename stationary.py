@@ -93,7 +93,7 @@ class Stationary(Kernel):
         distance += 1e-12
         return xp.sqrt(distance) / self.lengthscale
 
-    @Cache('g')
+    @Cache('no')
     def K(self, X1, X2=None):
         r = self.r(X1, X2)
         return self.K_of_r(r)
@@ -129,11 +129,10 @@ class Stationary(Kernel):
             X2 = X1
         return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T) / self.lengthscale ** 2) / r
 
-    @Cache('g')
     def dr_dl(self, r):
         return -r / self.lengthscale
 
-    @Cache('g')
+    @Cache('no')
     def dK_dl(self, X1, X2=None):
         r = self.r(X1, X2)
         return self.dK_dr(r) * self.dr_dl(r)
@@ -146,7 +145,7 @@ class Stationary(Kernel):
     def d3K_drdrdl(self, r):
         return self.d3K_drdrdr(r) * self.dr_dl(r) - self.d2K_drdr(r) / self.lengthscale * 2
 
-    @Cache('g')
+    @Cache('no')
     def dK_dv(self, X1, X2=None):
         return self.K(X1, X2) / self.variance
 
@@ -272,7 +271,7 @@ class RBF(Stationary):
         super().__init__()
         self.name = 'stationary.RBF'
 
-    @Cache('g')
+    @Cache('no')
     def K_of_r(self, r):
         if gpu_available:
             xp = cp.get_array_module(r)
@@ -296,7 +295,7 @@ class RBF(Stationary):
             xp = np
         return xp.exp(-r**2 / 2) * (r**2 - 1) * self.variance
 
-    @Cache('g')
+    @Cache('no')
     def d3K_drdrdr(self, r):
         if gpu_available:
             xp = cp.get_array_module(r)
@@ -327,7 +326,7 @@ class Matern32(Stationary):
         super().__init__()
         self.name = 'stationary.Matern32'
 
-    @Cache('g')
+    @Cache('no')
     def K_of_r(self, r):
         if gpu_available:
             xp = cp.get_array_module(r)
@@ -354,7 +353,7 @@ class Matern32(Stationary):
         s3 = xp.sqrt(3.)
         return (s3 * r - 1) * 3 * xp.exp(-s3 * r) * self.variance
 
-    @Cache('g')
+    @Cache('no')
     def d3K_drdrdr(self, r):
         if gpu_available:
             xp = cp.get_array_module(r)
@@ -386,7 +385,7 @@ class Matern52(Stationary):
         super().__init__()
         self.name = 'stationary.Matern52'
 
-    @Cache('g')
+    @Cache('no')
     def K_of_r(self, r):
         if gpu_available:
             xp = cp.get_array_module(r)
@@ -413,7 +412,7 @@ class Matern52(Stationary):
         s5 = xp.sqrt(5)
         return (-1 - s5 * r + 5. * r**2) * 5 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
 
-    @Cache('g')
+    @Cache('no')
     def d3K_drdrdr(self, r):
         if gpu_available:
             xp = cp.get_array_module(r)
