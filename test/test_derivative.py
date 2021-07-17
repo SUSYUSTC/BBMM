@@ -96,7 +96,6 @@ def y(X):
 
 np.random.seed(0)
 X = np.random.random((N, (n + 1) * d))
-X2 = np.random.random((10, 2))
 Y = y(X)
 
 

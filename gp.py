@@ -4,7 +4,7 @@ import time
 
 
 class GP(object):
-    def __init__(self, X, Y, kernel, noise=1e-4, GPU=False):
+    def __init__(self, X, Y, kernel, noise, GPU=False):
         self.kernel = kernel
         self.noise = noise
         self.GPU = GPU

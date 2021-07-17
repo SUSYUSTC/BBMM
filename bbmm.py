@@ -112,23 +112,7 @@ class BBMM(object):
         self.kernel.set_cache_state(False)
         self.nout = nout
 
-    def initialize_kernel(self, params):
-        self.kernel.set_all_ps(params)
-        if self.batch is None:
-            assert not self.GPU
-            self.K_full = self.kernel.K(self.X, self.X)
-            self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.ps))]
-        else:
-            self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
-            self.division_out = np.split(np.arange(self.N*self.nout), range(self.batch*self.nout, self.N*self.nout, self.batch*self.nout))
-            self.n_division = len(self.division)
-
-        self.iter = 0
-        self.total_time_Kx = 0.0
-        self.total_time_pred = 0.0
-        self.total_time_CG = 0.0
-
-    def initialize(self, X, params, noise, batch=4096):
+    def initialize(self, X, noise, batch=4096):
         # batch=None: no batch, else, batch=min(N, batch)
         # initialize bbmm
 
@@ -146,7 +130,20 @@ class BBMM(object):
         if self.batch is not None:
             self.batch = min(self.batch//self.nout, self.N)
         self.noise = noise
-        self.initialize_kernel(params)
+
+        if self.batch is None:
+            assert not self.GPU
+            self.K_full = self.kernel.K(self.X, self.X)
+            self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.ps))]
+        else:
+            self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
+            self.division_out = np.split(np.arange(self.N*self.nout), range(self.batch*self.nout, self.N*self.nout, self.batch*self.nout))
+            self.n_division = len(self.division)
+
+        self.iter = 0
+        self.total_time_Kx = 0.0
+        self.total_time_pred = 0.0
+        self.total_time_CG = 0.0
 
     def _matrix_batch_CPU(self, method, vec):
         '''

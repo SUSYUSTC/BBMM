@@ -18,8 +18,9 @@ lr = 0.5
 class Test(unittest.TestCase):
     def _run(self, nGPU, kern):
         kernel = kern()
+        kernel.set_all_ps([variance, lengthscale])
         bbmm = BBMM.BBMM(kernel, nGPU=nGPU, file=None, verbose=False)
-        bbmm.initialize(X, [variance, lengthscale], noise)
+        bbmm.initialize(X, noise)
         #bbmm.verbose = True
         bbmm.set_preconditioner(N_init, nGPU=0)
         woodbuery_vec_iter = bbmm.solve_iter(Y)

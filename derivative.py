@@ -9,10 +9,9 @@ from .cache import Cache
 from . import kern
 
 
-class FullDerivative(Kernel):
+class GeneralDerivative(Kernel):
     def __init__(self, kernel, n, d):
         self.default_cache = {}
-        self.name = 'adv_kern.FullDerivative'
         self.n = n
         self.d = d
         self.input_dim = (n + 1) * d
@@ -40,6 +39,50 @@ class FullDerivative(Kernel):
             self.inv_transform_ps.append(lambda x: self.kernel.inv_transform_ps[i](x))
         super().__init__()
         self.check()
+
+    def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
+        raise NotImplementedError
+
+    def K(self, X, X2=None):
+        raise NotImplementedError
+
+    def dK_dp(self, i, X, X2=None):
+        raise NotImplementedError
+
+    def Kdiag(self, X):
+        raise NotImplementedError
+
+    def clear_cache(self):
+        self.cache_data = {}
+        self.kernel.clear_cache()
+
+    def to_dict(self):
+        data = {
+            'name': self.name,
+            'n': self.n,
+            'd': self.d,
+            'kern': self.kernel.to_dict()
+        }
+        return data
+
+    @classmethod
+    def from_dict(self, data):
+        n = data['n']
+        d = data['d']
+        kern_dict = data['kern']
+        kernel = kern.get_kern_obj(kern_dict)
+        result = self(kernel, n, d)
+        return result
+
+    def set_cache_state(self, state):
+        self.cache_state = state
+        self.kernel.set_cache_state(state)
+
+
+class FullDerivative(GeneralDerivative):
+    def __init__(self, kernel, n, d):
+        self.name = 'derivative.FullDerivative'
+        super().__init__(kernel, n, d)
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
         if gpu_available:
@@ -92,78 +135,11 @@ class FullDerivative(Kernel):
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.dK_dl_0(X_K)] + [self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
 
-    def clear_cache(self):
-        self.cache_data = {}
-        self.kernel.clear_cache()
 
-    def to_dict(self):
-        data = {
-            'name': self.name,
-            'n': self.n,
-            'd': self.d,
-            'kern': self.kernel.to_dict()
-        }
-        return data
-
-    @classmethod
-    def from_dict(self, data):
-        n = data['n']
-        d = data['d']
-        kern_dict = data['kern']
-        kernel = kern.get_kern_obj(kern_dict)
-        result = FullDerivative(kernel, n, d)
-        return result
-
-    def set_cache_state(self, state):
-        self.cache_state = state
-        self.kernel.set_cache_state(state)
-
-
-class Derivative(Kernel):
+class Derivative(GeneralDerivative):
     def __init__(self, kernel, n, d):
-        self.n = n
-        self.d = d
-        self.input_dim = (n + 1) * d
-        self.dim_K = slice(0, self.d)
-        self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
-        self.kern = kernel
-        self.kernel = self.kern()
-        self.lengthscale = 1.0
-        self.variance = 1.0
-        self.ps = [self.variance, self.lengthscale]
-        self.set_ps = [self.set_variance, self.set_lengthscale]
-        self.transform_ps = [self.transform_variance, self.transform_lengthscale]
-        self.d_transform_ps = [self.d_transform_variance, self.d_transform_lengthscale]
-        self.default_cache = {}
-        self.name = 'adv_kern.Derivative'
-
-    def set_variance(self, variance):
-        self.kernel.set_variance(variance)
-        self.variance = variance
-        self.ps = [self.variance, self.lengthscale]
-
-    def set_lengthscale(self, lengthscale):
-        self.kernel.set_lengthscale(lengthscale)
-        self.lengthscale = lengthscale
-        self.ps = [self.variance, self.lengthscale]
-
-    def transform_variance(self, variance):
-        return np.log(variance)
-
-    def transform_lengthscale(self, lengthscale):
-        return np.log(lengthscale)
-
-    def d_transform_variance(self, variance):
-        return 1 / variance
-
-    def d_transform_lengthscale(self, lengthscale):
-        return 1 / lengthscale
-
-    def inv_transform_variance(self, t_variance):
-        return np.exp(t_variance)
-
-    def inv_transform_lengthscale(self, t_lengthscale):
-        return np.exp(t_lengthscale)
+        self.name = 'derivative.Derivative'
+        super().__init__(kernel, n, d)
 
     def _fake_K(self, X, X2, d2K_dXdX2):
         if gpu_available:
@@ -189,12 +165,8 @@ class Derivative(Kernel):
         return self._fake_K(X, X2, self.kernel.d2K_dXdX2)
 
     @Cache('g')
-    def dK_dl(self, X, X2=None):
-        return self._fake_K(X, X2, self.kernel.d3K_dXdX2dl)
-
-    @Cache('g')
-    def dK_dv(self, X, X2=None):
-        return self._fake_K(X, X2, self.kernel.d3K_dXdX2dv)
+    def dK_dp(self, i, X, X2=None):
+        return self._fake_K(X, X2, self.kernel.d3K_dpsdXdX2[i])
 
     @Cache('g')
     def Kdiag(self, X):
@@ -212,27 +184,3 @@ class Derivative(Kernel):
             xp = np
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
-
-    def clear_cache(self):
-        self.cache_data = {}
-        self.kernel.cache_data = {}
-
-    def to_dict(self):
-        data = {
-            'name': self.name,
-            'n': self.n,
-            'd': self.d,
-            'kern': self.kernel.to_dict()
-        }
-        return data
-
-    @classmethod
-    def from_dict(self, data):
-        n = data['n']
-        d = data['d']
-        kern_dict = data['kern']
-        kernel_type = eval(kern_dict['name'])
-        result = Derivative(kernel_type, n, d)
-        result.set_lengthscale(kern_dict['lengthscale'])
-        result.set_variance(kern_dict['variance'])
-        return result

@@ -14,7 +14,7 @@ class Test(unittest.TestCase):
         variance = 1.0
         k.set_lengthscale(lengthscale)
         k.set_variance(variance)
-        gp = BBMM.GP(X, Y, k, noise=noise, GPU=GPU)
+        gp = BBMM.GP(X, Y, k, noise, GPU=GPU)
         gp.optimize(messages=False)
 
         GPy_kern = GPy.kern.RBF(input_dim=X.shape[1], lengthscale=lengthscale, variance=variance)
