@@ -10,7 +10,6 @@ N = len(Y)
 lengthscale = 1.0
 variance = 5.0
 noise = 1e-2
-batch = min(4096, N)
 # lager block size gives more accurate gradient
 N_init = 500
 lr = 0.5
@@ -20,7 +19,7 @@ class Test(unittest.TestCase):
     def _run(self, nGPU, kern):
         kernel = kern()
         bbmm = BBMM.BBMM(kernel, nGPU=nGPU, file=None, verbose=False)
-        bbmm.initialize(X, lengthscale, variance, noise, batch=batch)
+        bbmm.initialize(X, [variance, lengthscale], noise)
         #bbmm.verbose = True
         bbmm.set_preconditioner(N_init, nGPU=0)
         woodbuery_vec_iter = bbmm.solve_iter(Y)

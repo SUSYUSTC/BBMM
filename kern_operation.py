@@ -46,6 +46,7 @@ class ProductKernel(Kernel):
             self.transform_ps.append(lambda x: self.kern_list[kern_index].transform_ps[pos_index](x))
             self.d_transform_ps.append(lambda x: self.kern_list[kern_index].d_transform_ps[pos_index](x))
             self.inv_transform_ps.append(lambda x: self.kern_list[kern_index].inv_transform_ps[pos_index](x))
+        super().__init__()
         self.check()
 
     def get_pos(self, i):
@@ -108,3 +109,8 @@ class ProductKernel(Kernel):
         kern_list = [kern.get_kern_obj(kerndata) for kerndata in data['kern_list']]
         kernel = self(kern_list, dims=data['dims'])
         return kernel
+
+    def set_cache_state(self, state):
+        self.cache_state = state
+        for k in self.kern_list:
+            k.set_cache_state(state)

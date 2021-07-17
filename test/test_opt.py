@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
         while True:
             kernel = BBMM.kern.RBF()
             bbmm = BBMM.BBMM(kernel, nGPU=1, file=None, verbose=False)
-            bbmm.initialize(X, opt.lengthscale, opt.variance, opt.noise, batch=batch)
+            bbmm.initialize(X, [opt.variance, opt.lengthscale], opt.noise, batch=batch)
             bbmm.set_preconditioner(N_init, nGPU=0)
             # must use the same random seed through the optimization!
             bbmm.solve_iter(Y, thres=thres, block_size=bs, compute_gradient=True, random_seed=0, compute_loglikelihood=False, lanczos_n_iter=20, debug=False, max_iter=1000)
@@ -48,7 +48,7 @@ class Test(unittest.TestCase):
         self.assertTrue(np.abs(opt.noise - 0.013) < 0.001)
         kernel = BBMM.kern.RBF()
         bbmm = BBMM.BBMM(kernel, nGPU=1, file=None, verbose=False)
-        bbmm.initialize(X, opt.lengthscale, opt.variance, opt.noise, batch=batch)
+        bbmm.initialize(X, [opt.variance, opt.lengthscale], opt.noise, batch=batch)
         bbmm.set_preconditioner(N_init, nGPU=0)
         bbmm.verbose = False
         bbmm.set_preconditioner(N_init, nGPU=0)

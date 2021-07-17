@@ -251,6 +251,9 @@ class Stationary(Kernel):
         kernel.set_variance(data['variance'])
         return kernel
 
+    def set_cache_state(self, state):
+        self.cache_state = state
+
 
 class RBF(Stationary):
     '''

@@ -29,6 +29,13 @@ According to conjugate gradient, the needed number of iteraction is proportional
 The two parameters that influence the condition number are preconditioner size k (the larger the faster) and gaussian noise (the smaller the faster).
 Since Using too large noise may increase the prediction error, it is recommended to determine the noise in a prior test by choosing the largest one without increasing the error too much.
 Aside from the condition number, increasing block size used in block conjugate gradient increases the searching space in each iteration and also result in faster convergence.
+
+Structure:
+    _matrix_batch_CPU(method, vec), _matrix_batch_GPU(method, vec)
+    K_batch(vec, GPU), dK_dps_batch(i, vec, GPU)
+    mv_K(vec), mv_Knoise(vec), mv_dK_dps(i, vec)
+    mv_Knoise_numpy(vec), mv_dK_dps_numpy(i, vec)
+    _matrix_multiple(self, method, *vs), mv_Knoise_multiple(self, *vs), mv_Knoise_multiple(self, *vs)
 '''
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -78,7 +85,7 @@ class LL_gradient(object):
 
 
 class BBMM(object):
-    def __init__(self, kernel, nGPU=0, file=None, verbose=True):
+    def __init__(self, kernel, nGPU=0, file=None, verbose=True, nout=1):
         '''
         A general BBMM stationary kernel.
         RBF, Matern32 and Matern52 are implemented as example.
@@ -87,8 +94,6 @@ class BBMM(object):
         Parameters
         ----------
         X: N*f array.
-        lengthscale: scalar.
-        variance: scalar.
         noise: scalar.
         batch: Batch size of block kernel construction in order to save memory.
         nGPU: Number of used GPUs.
@@ -104,23 +109,27 @@ class BBMM(object):
         else:
             self.cnp = np
         self.kernel = kernel
+        self.kernel.set_cache_state(False)
+        self.nout = nout
 
-    def initialize_kernel(self, lengthscale, variance):
-        self.kernel.set_lengthscale(lengthscale)
-        self.kernel.set_variance(variance)
+    def initialize_kernel(self, params):
+        self.kernel.set_all_ps(params)
         if self.batch is None:
             assert not self.GPU
             self.K_full = self.kernel.K(self.X, self.X)
-            self.dK_dlengthscale_full = self.kernel.dK_dl(self.X, self.X)
+            self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.ps))]
         else:
             self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
+            self.division_out = np.split(np.arange(self.N*self.nout), range(self.batch*self.nout, self.N*self.nout, self.batch*self.nout))
+            self.n_division = len(self.division)
 
         self.iter = 0
         self.total_time_Kx = 0.0
         self.total_time_pred = 0.0
         self.total_time_CG = 0.0
 
-    def initialize(self, X, lengthscale, variance, noise, batch=None):
+    def initialize(self, X, params, noise, batch=4096):
+        # batch=None: no batch, else, batch=min(N, batch)
         # initialize bbmm
 
         if not self.GPU:
@@ -134,8 +143,10 @@ class BBMM(object):
         self.dtype = X.dtype
         self.N = len(X)
         self.batch = batch
+        if self.batch is not None:
+            self.batch = min(self.batch//self.nout, self.N)
         self.noise = noise
-        self.initialize_kernel(lengthscale, variance)
+        self.initialize_kernel(params)
 
     def _matrix_batch_CPU(self, method, vec):
         '''
@@ -146,18 +157,22 @@ class BBMM(object):
         vec: N*s numpy array.
         '''
         result = np.zeros_like(vec)
-        for i, x in enumerate(self.division):
-            for j, y in enumerate(self.division):
+        for i in range(self.n_division):
+            for j in range(self.n_division):
+                x = self.division[i]
+                y = self.division[j]
+                x_out = self.division_out[i]
+                y_out = self.division_out[j]
                 # Only calculate the lower triangular block
                 if i <= j:
                     t1 = time.time()
                     if i == j:
                         K_block = method(self.X[x])
                     else:
-                        K_block = method(self.X[x], self.X[y])
-                    result[x] += K_block.dot(vec[y])
+                        K_block = method(self.X[x], self.X[y_out])
+                    result[x_out] += K_block.dot(vec[y])
                     if i < j:
-                        result[y] += K_block.T.dot(vec[x])
+                        result[y_out] += K_block.T.dot(vec[x_out])
                     t2 = time.time()
                     self.total_time_Kx += t2 - t1
         return result
@@ -180,18 +195,20 @@ class BBMM(object):
                 batches[i] = cp.zeros(vec.shape)
                 vecs[i] = cp.asarray(vec)
         k = 0
-        for i in range(len(self.division)):
-            for j in range(len(self.division)):
+        for i in range(self.n_division):
+            for j in range(self.n_division):
+                x = self.division[i]
+                y = self.division[j]
+                x_out = self.division_out[i]
+                y_out = self.division_out[j]
                 if i <= j:
-                    x = self.division[i]
-                    y = self.division[j]
                     # distribute calculation to multiple devices
                     device_index = k % self.nGPU
                     with cp.cuda.Device(device_index):
                         K_block = method(self.X[device_index][x], self.X[device_index][y])
-                        batches[device_index][x] += K_block.dot(vecs[device_index][y])
+                        batches[device_index][x_out] += K_block.dot(vecs[device_index][y_out])
                         if i < j:
-                            batches[device_index][y] += K_block.T.dot(vecs[device_index][x])
+                            batches[device_index][y_out] += K_block.T.dot(vecs[device_index][x_out])
                     k += 1
         with cp.cuda.Device(0):
             for i in range(self.nGPU):
@@ -208,11 +225,26 @@ class BBMM(object):
         else:
             return self._matrix_batch_CPU(self.kernel.K, vec)
 
-    def dK_dlengthscale_batch(self, vec, GPU):
+    def dK_dps_batch(self, i, vec, GPU):
         if GPU:
-            return self._matrix_batch_GPU(self.kernel.dK_dl, vec)
+            return self._matrix_batch_GPU(self.kernel.dK_dps[i], vec)
         else:
-            return self._matrix_batch_CPU(self.kernel.dK_dl, vec)
+            return self._matrix_batch_CPU(self.kernel.dK_dps[i], vec)
+
+    def mv_K(self, vec):
+        '''
+        Calculate the matrix matrix multiplication of the symmetric kernal and a given matrix by block on GPU.
+
+        Parameters
+        ----------
+        vec: N*s numpy or cupy array.
+        '''
+        self.iter += 1
+        if self.batch is None:
+            result = self.K_full.dot(vec)
+        else:
+            result = self.K_batch(vec, self.GPU)
+        return result
 
     def mv_Knoise(self, vec):
         '''
@@ -222,14 +254,9 @@ class BBMM(object):
         ----------
         vec: N*s numpy or cupy array.
         '''
-        self.iter += 1
-        if self.batch is None:
-            result = self.K_full.dot(vec) + vec * self.noise
-        else:
-            result = self.K_batch(vec, self.GPU) + vec * self.noise
-        return result
+        return self.mv_K(vec) + vec * self.noise
 
-    def mv_dK_dlengthscale(self, vec):
+    def mv_dK_dps(self, i, vec):
         '''
         Calculate the matrix matrix multiplication of the symmetric kernal and a given matrix by block on GPU.
 
@@ -239,9 +266,9 @@ class BBMM(object):
         '''
         self.iter += 1
         if self.batch is None:
-            result = self.dK_dlengthscale_full.dot(vec)
+            result = self.dK_dps_full[i].dot(vec)
         else:
-            result = self.dK_dlengthscale_batch(vec, self.GPU)
+            result = self.dK_dps_batch(i, vec, self.GPU)
         return result
 
     def mv_Knoise_numpy(self, vec):
@@ -258,6 +285,20 @@ class BBMM(object):
         else:
             return self.mv_Knoise(vec)
 
+    def mv_dK_dps_numpy(self, i, vec):
+        '''
+        A numpy wrapper of GPU kernel matrix matrix multiplication
+
+        Parameters
+        ----------
+        vec: N*s numpy array.
+        '''
+        if self.GPU:
+            with cp.cuda.Device(0):
+                return cp.asnumpy(self.mv_dK_dps(i, cp.asarray(vec)))
+        else:
+            return self.mv_dK_dps(i, vec)
+
     def _matrix_multiple(self, method, *vs):
         if gpu_available:
             xp = cp.get_array_module(vs[0])
@@ -273,20 +314,6 @@ class BBMM(object):
 
     def mv_Knoise_numpy_multiple(self, *vs):
         return self._matrix_multiple(self.mv_Knoise_numpy, *vs)
-
-    def mv_dK_dlengthscale_numpy(self, vec):
-        '''
-        A numpy wrapper of GPU kernel matrix matrix multiplication
-
-        Parameters
-        ----------
-        vec: N*s numpy array.
-        '''
-        if self.GPU:
-            with cp.cuda.Device(0):
-                return cp.asnumpy(self.mv_dK_dlengthscale(cp.asarray(vec)))
-        else:
-            return self.mv_dK_dlengthscale(vec)
 
     def predict(self, X2, vec, training=False):
         if self.GPU:
@@ -343,7 +370,7 @@ class BBMM(object):
             if self.verbose:
                 print("Constructing K12", file=self.file, flush=True)
             K12 = self.kernel.K(self.X, self.X[init_indices])
-        I = np.eye(N_init, dtype=self.dtype)
+        I = np.eye(len(K11), dtype=self.dtype)
         if self.verbose:
             print("Running QR", file=self.file, flush=True)
         # K12 = Q R
@@ -376,10 +403,10 @@ class BBMM(object):
             self.R = R
             if self.GPU:
                 self.K_full_np = cp.asnumpy(self.kernel.K(self.X[0], self.X[0]))
-                self.dK_dlengthscale_full_np = cp.asnumpy(self.kernel.dK_dl(self.X[0], self.X[0]))
+                self.dK_dl_full_np = cp.asnumpy(self.kernel.dK_dl(self.X[0], self.X[0]))
             else:
                 self.K_full_np = self.kernel.K(self.X, self.X)
-                self.dK_dlengthscale_full_np = self.kernel.dK_dlengthscale(self.X, self.X)
+                self.dK_dl_full_np = self.kernel.dK_dps(1, self.X, self.X)
             self.K_guess = K12.dot(LA.inv(self.K11 + I * self.noise)).dot(K12.T)
             self.err_K_guess_qr = self.Q.dot(self.K_core).dot(self.Q.T) - self.K_guess
             if self.verbose:
@@ -448,12 +475,13 @@ class BBMM(object):
             if i == 0:
                 if self.GPU:
                     print("GPU Memory usage:", get_GRAM_usage(), file=self.file, flush=True)
-                print('\n' * 4, end='', file=self.file, flush=True)
-            print(up_line * 4, end='', file=self.file, flush=True)
-            print(clear_line + "Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
-            print(clear_line + "Time spent on CG (Nss):", t_cg, file=self.file, flush=True)
-            print(clear_line + "Average time spent on kernel MMM (NNs):", self.total_time_Kx / self.iter, file=self.file, flush=True)
-            print(clear_line + "Average time spent on preconditioner transformation (Nks):", self.total_time_pred / self.iter, file=self.file, flush=True)
+                #print('\n' * 4, end='', file=self.file, flush=True)
+            #print(up_line * 4, end='', file=self.file, flush=True)
+            #print(clear_line + "Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
+            #print(clear_line + "Time spent on CG (Nss):", t_cg, file=self.file, flush=True)
+            #print(clear_line + "Average time spent on kernel MMM (NNs):", self.total_time_Kx / self.iter, file=self.file, flush=True)
+            #print(clear_line + "Average time spent on preconditioner transformation (Nks):", self.total_time_pred / self.iter, file=self.file, flush=True)
+            print("Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
 
     def solve_iter(self, Y, x0=None, block_size=50, thres=1e-6, compute_gradient=False, random_seed=0, compute_loglikelihood=None, lanczos_n_iter=20, debug=False, max_iter=None):
         '''
@@ -476,7 +504,7 @@ class BBMM(object):
         if x0 is not None:
             return self.solve_iter(Y - self.mv_Knoise_numpy(x0), block_size=block_size, thres=thres, compute_gradient=compute_gradient, random_seed=random_seed, compute_loglikelihood=compute_loglikelihood, lanczos_n_iter=lanczos_n_iter, debug=debug)
         np.random.seed(random_seed)
-        self.random_vectors = np.random.normal(size=(self.N, block_size))
+        self.random_vectors = np.random.normal(size=(len(Y), block_size))
         if compute_loglikelihood:
             self.lanczos_vectors = self.random_vectors.copy()
             if self.main_GPU:
@@ -486,15 +514,15 @@ class BBMM(object):
             self.lanczos_vectors = None
         area_Y = slice(0, 1)
         area_I = slice(1, block_size + 1)
-        area_dL_dlengthscale = slice(block_size + 1, block_size * 2 + 1)
+        area_dL_dl = slice(block_size + 1, block_size * 2 + 1)
         if compute_gradient:
-            self.block_Y = np.zeros((self.N, block_size * 2 + 1))
+            self.block_Y = np.zeros((len(Y), block_size * 2 + 1))
             self.block_Y[:, area_Y] = Y.copy()
             self.block_Y[:, area_I] = self.random_vectors.copy()
-            self.mv_dK_dlengthscale_random_vectors = self.mv_dK_dlengthscale_numpy(self.random_vectors)
-            self.block_Y[:, area_dL_dlengthscale] = self.mv_dK_dlengthscale_random_vectors.copy()
+            self.mv_dK_dl_random_vectors = self.mv_dK_dps_numpy(1, self.random_vectors)
+            self.block_Y[:, area_dL_dl] = self.mv_dK_dl_random_vectors.copy()
         else:
-            self.block_Y = np.zeros((self.N, block_size + 1))
+            self.block_Y = np.zeros((len(Y), block_size + 1))
             self.block_Y[:, area_Y] = Y.copy()
             self.block_Y[:, area_I] = self.random_vectors.copy()
         if self.main_GPU:
@@ -503,7 +531,7 @@ class BBMM(object):
         t1 = time.time()
         if self.verbose:
             print("Start iteractive solver with block size", block_size, "and threshold", thres, file=self.file, flush=True)
-            print("\n\n\n\n", file=self.file, flush=True, end='')
+            #print("\n\n\n\n", file=self.file, flush=True, end='')
         self.krylov = Krylov(self.mv_preconditioned_Knoise, self.Y_transform, thres=thres, callback=self.callback, lanczos_vectors=self.lanczos_vectors, lanczos_n_iter=lanczos_n_iter, debug=debug, max_iter=max_iter)
 
         if compute_loglikelihood:
@@ -523,24 +551,24 @@ class BBMM(object):
             real_solution = cp.asnumpy(real_solution)
             woodbury_vec_iter = real_solution[:, area_Y].copy()
             woodbury_vec_I = real_solution[:, area_I].copy()
-            woodbury_vec_dK_dlengthscale = real_solution[:, area_dL_dlengthscale]
+            woodbury_vec_dK_dl = real_solution[:, area_dL_dl]
             self.tr_I = np.sum(woodbury_vec_I * self.random_vectors) / block_size
-            self.tr_dK_dlengthscale = np.sum(woodbury_vec_dK_dlengthscale * self.random_vectors) / block_size
-            dK_dlengthscale_dot_woodbury_vec = self.mv_dK_dlengthscale_numpy(woodbury_vec_iter)
+            self.tr_dK_dl = np.sum(woodbury_vec_dK_dl * self.random_vectors) / block_size
+            dK_dl_dot_woodbury_vec = self.mv_dK_dps_numpy(1, woodbury_vec_iter)
             Knoise_dot_woodbury_vec = self.mv_Knoise_numpy(woodbury_vec_iter)
             K_dot_woodbury_vec = Knoise_dot_woodbury_vec - woodbury_vec_iter * self.noise
-            dL_dlengthscale = woodbury_vec_iter.T.dot(dK_dlengthscale_dot_woodbury_vec)[0, 0] / 2 - self.tr_dK_dlengthscale / 2
-            dL_dvariance = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (self.N - self.tr_I * self.noise) / 2) / self.kernel.variance
+            dL_dl = woodbury_vec_iter.T.dot(dK_dl_dot_woodbury_vec)[0, 0] / 2 - self.tr_dK_dl / 2
+            dL_dv = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (len(Y) - self.tr_I * self.noise) / 2) / self.kernel.ps[0]
             dL_dnoise = woodbury_vec_iter.T.dot(woodbury_vec_iter)[0, 0] / 2 - self.tr_I / 2
-            self.gradients = LL_gradient(dL_dvariance, dL_dlengthscale, dL_dnoise)
+            self.gradients = LL_gradient(dL_dv, dL_dl, dL_dnoise)
         else:
             real_solution = self.pred_nystroem.mv_invhalf(self.solution)
             real_solution = cp.asnumpy(real_solution)
             woodbury_vec_iter = real_solution[:, area_Y].copy()
         if compute_loglikelihood:
             self.logdets_samples = xp.array([get_tridiagonal_matrix_log(d, e)[0, 0] for d, e in zip(cp.asnumpy(self.d.T), cp.asnumpy(self.e.T))])
-            self.logdet = xp.mean(self.logdets_samples) * self.N
-            self.log_likelihood = -self.logdet / 2 - woodbury_vec_iter.T.dot(Y)[0, 0] / 2 - np.log(np.pi * 2) * self.N / 2
+            self.logdet = xp.mean(self.logdets_samples) * len(Y)
+            self.log_likelihood = -self.logdet / 2 - woodbury_vec_iter.T.dot(Y)[0, 0] / 2 - np.log(np.pi * 2) * len(Y) / 2
         return woodbury_vec_iter
 
     def solve_direct(self, Y):

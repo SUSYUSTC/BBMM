@@ -38,6 +38,7 @@ class FullDerivative(Kernel):
             self.transform_ps.append(lambda x: self.kernel.transform_ps[i](x))
             self.d_transform_ps.append(lambda x: self.kernel.d_transform_ps[i](x))
             self.inv_transform_ps.append(lambda x: self.kernel.inv_transform_ps[i](x))
+        super().__init__()
         self.check()
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
@@ -112,6 +113,10 @@ class FullDerivative(Kernel):
         kernel = kern.get_kern_obj(kern_dict)
         result = FullDerivative(kernel, n, d)
         return result
+
+    def set_cache_state(self, state):
+        self.cache_state = state
+        self.kernel.set_cache_state(state)
 
 
 class Derivative(Kernel):

@@ -21,7 +21,7 @@ class Test(unittest.TestCase):
     def _run(self, i):
         bbmm_kernel = BBMM_kernels[i]
         bbmm = BBMM.BBMM(bbmm_kernel, nGPU=1, file=None, verbose=False)
-        bbmm.initialize(X, lengthscale, variance, noise, batch=batch)
+        bbmm.initialize(X, [variance, lengthscale], noise, batch=batch)
         bbmm.set_preconditioner(N_init, nGPU=1, debug=True)
         woodbury_vec_iter = bbmm.solve_iter(Y, thres=thres, block_size=bs, compute_gradient=True, random_seed=0, compute_loglikelihood=False, lanczos_n_iter=20, debug=False, max_iter=1000)
 
@@ -48,11 +48,11 @@ class Test(unittest.TestCase):
         # 1e-8
         err_tr_noise = np.abs((bbmm.tr_I - tr_I) / tr_I)
         self.assertTrue(err_tr_noise < 1e-8)
-        sampled_tr_dK_dlengthscale = np.sum(bbmm.Knoise_inv.dot(bbmm.dK_dlengthscale_full_np).dot(random_vectors) * random_vectors, axis=0)
-        tr_dK_dlengthscale = np.mean(sampled_tr_dK_dlengthscale)
+        sampled_tr_dK_dl = np.sum(bbmm.Knoise_inv.dot(bbmm.dK_dl_full_np).dot(random_vectors) * random_vectors, axis=0)
+        tr_dK_dl = np.mean(sampled_tr_dK_dl)
         # 1e-5
-        err_tr_lengthscale = np.abs((bbmm.tr_dK_dlengthscale - tr_dK_dlengthscale) / tr_dK_dlengthscale)
-        self.assertTrue(err_tr_lengthscale < 1e-8)
+        err_tr_l = np.abs((bbmm.tr_dK_dl - tr_dK_dl) / tr_dK_dl)
+        self.assertTrue(err_tr_l < 1e-8)
 
         # 1e-4
         err_grad_variance = np.abs((bbmm.gradients.variance - gpy_model.gradient[0]) / gpy_model.gradient[0])

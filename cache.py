@@ -7,8 +7,11 @@ class Cache(object):
             self_f = args[0]
             name = f.__name__
 
-            if not hasattr(self_f, 'cache'):
-                self_f.cache = {}
+            if not self_f.cache_state:
+                if 'cache' in kwargs:
+                    del kwargs['cache']
+                return f(*args, **kwargs)
+
             if not hasattr(self_f, 'cache_data'):
                 self_f.cache_data = {}
             if name not in self_f.cache_data:
