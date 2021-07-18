@@ -1,10 +1,11 @@
 import numpy as np
 from . import kern
 import time
+import sys
 
 
 class GP(object):
-    def __init__(self, X, Y, kernel, noise, GPU=False):
+    def __init__(self, X, Y, kernel, noise, GPU=False, file=None):
         self.kernel = kernel
         self.noise = noise
         self.GPU = GPU
@@ -21,6 +22,10 @@ class GP(object):
         self.X = self.xp.array(X).copy()
         self.Y = self.xp.array(Y).copy()
         self.N = len(Y)
+        if file is None:
+            self.file = sys.__std__out
+        else:
+            self.file = file
 
     def fit(self, grad=False):
         K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache) + self.xp.eye(self.N) * self.noise
@@ -89,7 +94,7 @@ class GP(object):
         return result
 
     def opt_callback(self, x):
-        print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient))
+        print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file)
 
     def optimize(self, messages=False, tol=1e-6):
         import scipy
@@ -103,4 +108,4 @@ class GP(object):
         transform_noise = np.log(self.noise)
         self.result = scipy.optimize.minimize(self.objective, transform_ps + [transform_noise], jac=True, method='L-BFGS-B', callback=callback, tol=tol)
         end = time.time()
-        print('time', end - begin)
+        print('time', end - begin, file=self.file)
