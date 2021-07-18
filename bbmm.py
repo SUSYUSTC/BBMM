@@ -127,8 +127,9 @@ class BBMM(object):
         self.dtype = X.dtype
         self.N = len(X)
         self.batch = batch
+        self.N_out = self.N * self.nout
         if self.batch is not None:
-            self.batch = min(self.batch//self.nout, self.N)
+            self.batch = min(self.batch // self.nout, self.N)
         self.noise = noise
 
         if self.batch is None:
@@ -137,7 +138,10 @@ class BBMM(object):
             self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.ps))]
         else:
             self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
-            self.division_out = np.split(np.arange(self.N*self.nout), range(self.batch*self.nout, self.N*self.nout, self.batch*self.nout))
+            #self.division_out = np.split(np.arange(self.N*self.nout), range(self.batch*self.nout, self.N*self.nout, self.batch*self.nout))
+            self.division_out = []
+            for i in range(len(self.division)):
+                self.division_out.append(np.concatenate([self.division[i] + j * self.N for j in range(self.nout)]))
             self.n_division = len(self.division)
 
         self.iter = 0
@@ -297,6 +301,9 @@ class BBMM(object):
             return self.mv_dK_dps(i, vec)
 
     def _matrix_multiple(self, method, *vs):
+        #TODO: make it compatible with multiout
+        if self.nout > 1:
+            assert False, "Fix bug here"
         if gpu_available:
             xp = cp.get_array_module(vs[0])
         else:
@@ -313,6 +320,9 @@ class BBMM(object):
         return self._matrix_multiple(self.mv_Knoise_numpy, *vs)
 
     def predict(self, X2, vec, training=False):
+        #TODO: make it compatible with multiout
+        if (self.nout > 1) and (not training):
+            assert False, "Fix bug here"
         if self.GPU:
             Npred = len(X2)
             device_division = np.split(np.arange(Npred), [int(i * Npred / self.nGPU) for i in range(1, self.nGPU)])
@@ -357,26 +367,30 @@ class BBMM(object):
             init_indices = np.random.permutation(self.N)[0:N_init]
         else:
             init_indices = indices.copy()
+        init_indices = np.sort(init_indices)
         if self.GPU:
             K11 = cp.asnumpy(self.kernel.K(self.X[0][init_indices]))
             if self.verbose:
-                print("Constructing K12", file=self.file, flush=True)
-            K12 = np.concatenate([cp.asnumpy(self.kernel.K(self.X[0][d], self.X[0][init_indices])) for d in self.division])
+                print("Constructing K21", file=self.file, flush=True)
+            K21 = np.zeros((self.N_out, len(K11)))
+            for i in range(len(self.division)):
+                d = self.division[i]
+                K21[self.division_out[i], :] = cp.asnumpy(self.kernel.K(self.X[0][d], self.X[0][init_indices]))
         else:
             K11 = self.kernel.K(self.X[init_indices], self.X[init_indices])
             if self.verbose:
-                print("Constructing K12", file=self.file, flush=True)
-            K12 = self.kernel.K(self.X, self.X[init_indices])
+                print("Constructing K21", file=self.file, flush=True)
+            K21 = self.kernel.K(self.X, self.X[init_indices])
         I = np.eye(len(K11), dtype=self.dtype)
         if self.verbose:
             print("Running QR", file=self.file, flush=True)
-        # K12 = Q R
-        Q, R = LA.qr(K12)
+        # K21 = Q R
+        Q, R = LA.qr(K21)
         # M = Q R (K11 + \sigma^2 I)^{-1} R^T Q^t
         K_core = R.dot(LA.inv(K11 + I * self.noise)).dot(R.T)
         K_core = (K_core + K_core.T) / 2
         if not debug:
-            del K12, K11, R
+            del K21, K11, R
         if self.verbose:
             print("Calculating eigenvectors", file=self.file, flush=True)
         eigvals, eigvecs = LA.eigh(K_core)
@@ -390,7 +404,7 @@ class BBMM(object):
             self.init_indices = init_indices
             self.K11 = K11
             self.I = I
-            self.K12 = K12
+            self.K21 = K21
             self.K_core = K_core
             self.K_core_direct = R.dot(LA.inv(K11 + I * self.noise)).dot(R.T)
             self.eigvals = eigvals
@@ -400,26 +414,27 @@ class BBMM(object):
             self.R = R
             if self.GPU:
                 self.K_full_np = cp.asnumpy(self.kernel.K(self.X[0], self.X[0]))
-                self.dK_dl_full_np = cp.asnumpy(self.kernel.dK_dl(self.X[0], self.X[0]))
+                self.dK_dl_full_np = cp.asnumpy(self.kernel.dK_dps[1](self.X[0], self.X[0]))
             else:
                 self.K_full_np = self.kernel.K(self.X, self.X)
-                self.dK_dl_full_np = self.kernel.dK_dps(1, self.X, self.X)
-            self.K_guess = K12.dot(LA.inv(self.K11 + I * self.noise)).dot(K12.T)
+                self.dK_dl_full_np = self.kernel.dK_dps[1](self.X, self.X)
+            self.K_guess = K21.dot(LA.inv(self.K11 + I * self.noise)).dot(K21.T)
             self.err_K_guess_qr = self.Q.dot(self.K_core).dot(self.Q.T) - self.K_guess
             if self.verbose:
-                print("Error of K_guess after QR:", np.max(np.abs(self.err_K_guess_qr)) / self.kernel.variance)
+                print("Error of K_guess after QR:", np.max(np.abs(self.err_K_guess_qr)) / self.kernel.ps[0])
             self.invhalf_eigvals = 1 / np.sqrt(self.eigvals + self.noise) - 1 / np.sqrt(self.noise)
-            self.K_pred_invhalf = self.U.dot(np.diag(self.invhalf_eigvals)).dot(self.U.T) + np.eye(self.N) / np.sqrt(self.noise)
-            self.err_eigdecomposition = self.K_pred_invhalf.dot(self.K_guess + np.eye(self.N) * self.noise).dot(self.K_pred_invhalf) - np.eye(self.N)
+            # Some numerical issues here
+            self.K_pred_invhalf = self.U.dot(np.diag(self.invhalf_eigvals)).dot(self.U.T) + np.eye(self.N_out) / np.sqrt(self.noise)
+            self.err_eigdecomposition = self.K_pred_invhalf.dot(self.K_guess + np.eye(self.N_out) * self.noise).dot(self.K_pred_invhalf) - np.eye(self.N_out)
             if self.verbose:
-                print("Error of Eigenvalue Decomposition:", np.max(np.abs(self.err_eigdecomposition)) / self.kernel.variance)
-            self.K_pred = self.K_pred_invhalf.dot(self.K_full_np + np.eye(self.N) * self.noise).dot(self.K_pred_invhalf)
+                print("Error of Eigenvalue Decomposition:", np.max(np.abs(self.err_eigdecomposition)) / self.kernel.ps[0])
+            self.K_pred = self.K_pred_invhalf.dot(self.K_full_np + np.eye(self.N_out) * self.noise).dot(self.K_pred_invhalf)
             self.eigvals_K_pred = LA.eigvalsh(self.K_pred)
             if self.verbose:
                 print("Condition Number:", np.max(self.eigvals_K_pred) / np.min(self.eigvals_K_pred))
-            self.Knoise = self.K_full_np + np.eye(self.N) * self.noise
-            self.Knoise_inv = LA.inv(self.Knoise)
-            self.logKnoise = SLA.logm(self.Knoise)
+            self.Knoise = self.K_full_np + np.eye(self.N_out) * self.noise
+            #self.Knoise_inv = LA.inv(self.Knoise)
+            #self.logKnoise = SLA.logm(self.Knoise)
 
     def mv_preconditioned_Knoise(self, v, l=None):
         '''
