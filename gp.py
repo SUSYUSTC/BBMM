@@ -23,7 +23,7 @@ class GP(object):
         self.Y = self.xp.array(Y).copy()
         self.N = len(Y)
         if file is None:
-            self.file = sys.__std__out
+            self.file = sys.__stdout__
         else:
             self.file = file
 
@@ -60,14 +60,18 @@ class GP(object):
         np.savez(path, **data)
 
     @classmethod
-    def load(self, path):
-        data = dict(np.load(path, allow_pickle=True))
+    def from_dict(self, data):
         result = GP.__new__(GP)
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
         result = self(data['X'], data['Y'], kernel, noise=data['noise'][()])
         result.w = data['w']
         return result
+
+    @classmethod
+    def load(self, path):
+        data = dict(np.load(path, allow_pickle=True))
+        return self.from_dict(data)
 
     def predict(self, X):
         self.kernel.clear_cache()
@@ -94,7 +98,7 @@ class GP(object):
         return result
 
     def opt_callback(self, x):
-        print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file)
+        print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
 
     def optimize(self, messages=False, tol=1e-6):
         import scipy
@@ -108,4 +112,4 @@ class GP(object):
         transform_noise = np.log(self.noise)
         self.result = scipy.optimize.minimize(self.objective, transform_ps + [transform_noise], jac=True, method='L-BFGS-B', callback=callback, tol=tol)
         end = time.time()
-        print('time', end - begin, file=self.file)
+        print('time', end - begin, file=self.file, flush=True)
