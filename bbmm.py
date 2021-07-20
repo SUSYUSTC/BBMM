@@ -319,6 +319,10 @@ class BBMM(object):
     def mv_Knoise_numpy_multiple(self, *vs):
         return self._matrix_multiple(self.mv_Knoise_numpy, *vs)
 
+    def predict_train(self, vec):
+        return self.mv_Knoise_numpy(vec)
+
+    '''
     def predict(self, X2, vec, training=False):
         #TODO: make it compatible with multiout
         if (self.nout > 1) and (not training):
@@ -338,6 +342,7 @@ class BBMM(object):
         if training:
             result += vec * self.noise
         return result
+    '''
 
     def set_preconditioner(self, N_init, indices=None, debug=False, nGPU=0, random_seed=0):
         '''
