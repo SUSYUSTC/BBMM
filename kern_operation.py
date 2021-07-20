@@ -77,6 +77,8 @@ class ProductKernel(Kernel):
         else:
             xp = np
         Ks = [self.cached_K(i, X, X2) for i in range(self.nk)]
+        if not self.cache_state:
+            self.clear_cache()
         return functools.reduce(xp.multiply, Ks)
 
     @Cache('g')
@@ -89,6 +91,8 @@ class ProductKernel(Kernel):
         Ks = [self.cached_K(j, X, X2) for j in range(self.nk)]
         Ks[kern_index] = self.cached_dK_dp(kern_index, pos_index, X, X2)
         self.Ks = Ks
+        if not self.cache_state:
+            self.clear_cache()
         return functools.reduce(xp.multiply, Ks)
 
     def clear_cache(self):
@@ -105,6 +109,7 @@ class ProductKernel(Kernel):
         }
         return data
 
+    @classmethod
     def from_dict(self, data):
         kern_list = [kern.get_kern_obj(kerndata) for kerndata in data['kern_list']]
         kernel = self(kern_list, dims=data['dims'])

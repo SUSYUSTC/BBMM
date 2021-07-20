@@ -43,3 +43,6 @@ class Linear(Kernel):
     def from_dict(self, data):
         kernel = self()
         return kernel
+
+    def set_cache_state(self, state):
+        self.cache_statue = state
