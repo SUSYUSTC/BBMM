@@ -35,7 +35,7 @@ class Test(unittest.TestCase):
         err_K = np.max(np.abs(gpy_kernel.K_of_r(gpy_kernel._scaled_dist(X)) - bbmm.kernel.K_of_r(bbmm.kernel.r(X))))
         self.assertTrue(err_K < 1e-10)
 
-        pred = bbmm.predict(X, woodbury_vec_iter, training=True)
+        pred = bbmm.predict_train(woodbury_vec_iter)
         # 1e-6
         err_pred = np.max(np.abs(pred - Y))
         self.assertTrue(err_pred < 1e-6)
@@ -53,7 +53,7 @@ class Test(unittest.TestCase):
         tr_dK_dl = np.mean(sampled_tr_dK_dl)
         # 1e-5
         err_tr_l = np.abs((bbmm.tr_dK_dl - tr_dK_dl) / tr_dK_dl)
-        self.assertTrue(err_tr_l < 1e-8)
+        self.assertTrue(err_tr_l < 2e-8)
 
         # 1e-4
         err_grad_variance = np.abs((bbmm.gradients.variance - gpy_model.gradient[0]) / gpy_model.gradient[0])

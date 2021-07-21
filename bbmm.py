@@ -438,7 +438,7 @@ class BBMM(object):
             if self.verbose:
                 print("Condition Number:", np.max(self.eigvals_K_pred) / np.min(self.eigvals_K_pred))
             self.Knoise = self.K_full_np + np.eye(self.N_out) * self.noise
-            #self.Knoise_inv = LA.inv(self.Knoise)
+            self.Knoise_inv = LA.inv(self.Knoise)
             #self.logKnoise = SLA.logm(self.Knoise)
 
     def mv_preconditioned_Knoise(self, v, l=None):
