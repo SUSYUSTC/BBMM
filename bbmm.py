@@ -32,7 +32,6 @@ Aside from the condition number, increasing block size used in block conjugate g
 
 Structure:
     _matrix_batch_CPU(method, vec), _matrix_batch_GPU(method, vec)
-    K_batch(vec, GPU), dK_dps_batch(i, vec, GPU)
     mv_K(vec), mv_Knoise(vec), mv_dK_dps(i, vec)
     mv_Knoise_numpy(vec), mv_dK_dps_numpy(i, vec)
     _matrix_multiple(self, method, *vs), mv_Knoise_multiple(self, *vs), mv_Knoise_multiple(self, *vs)
@@ -167,10 +166,7 @@ class BBMM(object):
                 # Only calculate the lower triangular block
                 if i <= j:
                     t1 = time.time()
-                    if i == j:
-                        K_block = method(self.X[x])
-                    else:
-                        K_block = method(self.X[x], self.X[y])
+                    K_block = method(self.X[x], self.X[y])
                     result[x_out] += K_block.dot(vec[y_out])
                     if i < j:
                         result[y_out] += K_block.T.dot(vec[x_out])
@@ -203,6 +199,7 @@ class BBMM(object):
                 x_out = self.division_out[i]
                 y_out = self.division_out[j]
                 if i <= j:
+                    # Only calculate the lower triangular block
                     # distribute calculation to multiple devices
                     device_index = k % self.nGPU
                     with cp.cuda.Device(device_index):
@@ -220,18 +217,6 @@ class BBMM(object):
         self.total_time_Kx += t2 - t1
         return result
 
-    def K_batch(self, vec, GPU):
-        if GPU:
-            return self._matrix_batch_GPU(self.kernel.K, vec)
-        else:
-            return self._matrix_batch_CPU(self.kernel.K, vec)
-
-    def dK_dps_batch(self, i, vec, GPU):
-        if GPU:
-            return self._matrix_batch_GPU(self.kernel.dK_dps[i], vec)
-        else:
-            return self._matrix_batch_CPU(self.kernel.dK_dps[i], vec)
-
     def mv_K(self, vec):
         '''
         Calculate the matrix matrix multiplication of the symmetric kernal and a given matrix by block on GPU.
@@ -242,10 +227,12 @@ class BBMM(object):
         '''
         self.iter += 1
         if self.batch is None:
-            result = self.K_full.dot(vec)
+            return self.K_full.dot(vec)
         else:
-            result = self.K_batch(vec, self.GPU)
-        return result
+            if self.GPU:
+                return self._matrix_batch_GPU(self.kernel.K, vec)
+            else:
+                return self._matrix_batch_CPU(self.kernel.K, vec)
 
     def mv_Knoise(self, vec):
         '''
@@ -267,10 +254,12 @@ class BBMM(object):
         '''
         self.iter += 1
         if self.batch is None:
-            result = self.dK_dps_full[i].dot(vec)
+            return self.dK_dps_full[i].dot(vec)
         else:
-            result = self.dK_dps_batch(i, vec, self.GPU)
-        return result
+            if self.GPU:
+                return self._matrix_batch_GPU(self.kernel.dK_dps[i], vec)
+            else:
+                return self._matrix_batch_CPU(self.kernel.dk_dps[i], vec)
 
     def mv_Knoise_numpy(self, vec):
         '''
