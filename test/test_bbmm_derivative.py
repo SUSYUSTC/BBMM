@@ -25,22 +25,36 @@ Y = y(X)
 
 
 class Test(unittest.TestCase):
-    def setUp(self):
+    def test_cpu(self):
         stationary_kernel = BBMM.kern.RBF()
         stationary_kernel.set_lengthscale(lengthscale)
         stationary_kernel.set_variance(variance)
         kern = BBMM.kern.FullDerivative(stationary_kernel, n, d)
-        self.bbmm = BBMM.BBMM(kern, nGPU=1, nout=n + 1, verbose=False)
-        self.bbmm.initialize(X, noise)
-        self.bbmm.set_preconditioner(500, nGPU=0)
-        self.w_bbmm = self.bbmm.solve_iter(Y)
+        bbmm = BBMM.BBMM(kern, nGPU=0, nout=n + 1, verbose=False)
+        bbmm.initialize(X, noise)
+        bbmm.set_preconditioner(500, nGPU=0)
+        w_bbmm = bbmm.solve_iter(Y)
 
         kern2 = BBMM.kern.FullDerivative(stationary_kernel, n, d)
-        self.gp = BBMM.GP(X, Y, kern2, noise)
-        self.gp.fit()
+        gp = BBMM.GP(X, Y, kern2, noise)
+        gp.fit()
+        err = np.max(np.abs(gp.w - w_bbmm))
+        self.assertTrue(err < 1e-3)
 
-    def test(self):
-        err = np.max(np.abs(self.gp.w - self.w_bbmm))
+    def test_gpu(self):
+        stationary_kernel = BBMM.kern.RBF()
+        stationary_kernel.set_lengthscale(lengthscale)
+        stationary_kernel.set_variance(variance)
+        kern = BBMM.kern.FullDerivative(stationary_kernel, n, d)
+        bbmm = BBMM.BBMM(kern, nGPU=1, nout=n + 1, verbose=False)
+        bbmm.initialize(X, noise)
+        bbmm.set_preconditioner(500, nGPU=0)
+        w_bbmm = bbmm.solve_iter(Y)
+
+        kern2 = BBMM.kern.FullDerivative(stationary_kernel, n, d)
+        gp = BBMM.GP(X, Y, kern2, noise)
+        gp.fit()
+        err = np.max(np.abs(gp.w - w_bbmm))
         self.assertTrue(err < 1e-3)
 
 

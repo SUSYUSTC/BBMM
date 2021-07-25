@@ -170,8 +170,8 @@ class BBMM(object):
                     if i == j:
                         K_block = method(self.X[x])
                     else:
-                        K_block = method(self.X[x], self.X[y_out])
-                    result[x_out] += K_block.dot(vec[y])
+                        K_block = method(self.X[x], self.X[y])
+                    result[x_out] += K_block.dot(vec[y_out])
                     if i < j:
                         result[y_out] += K_block.T.dot(vec[x_out])
                     t2 = time.time()
