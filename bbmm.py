@@ -76,13 +76,6 @@ def get_tridiagonal_matrix_log(d, e):
     return SLA.logm(M)
 
 
-class LL_gradient(object):
-    def __init__(self, variance, lengthscale, noise):
-        self.variance = variance
-        self.lengthscale = lengthscale
-        self.noise = noise
-
-
 class BBMM(object):
     def __init__(self, kernel, nGPU=0, file=None, verbose=True, nout=1):
         '''
@@ -559,7 +552,7 @@ class BBMM(object):
             dK_dps_dot_woodbury_vec = [self.mv_dK_dps_numpy(i, woodbury_vec_iter) for i in range(nps)]
             dL_dps = [woodbury_vec_iter.T.dot(dK_dps_dot_woodbury_vec[i])[0, 0] / 2 - self.tr_dK_dps[i] / 2 for i in range(nps)]
             dL_dnoise = woodbury_vec_iter.T.dot(woodbury_vec_iter)[0, 0] / 2 - self.tr_I / 2
-            self.gradients = LL_gradient(*dL_dps, dL_dnoise)
+            self.gradients = dL_dps + [dL_dnoise]
             #old = True
             #if old:
             #    Knoise_dot_woodbury_vec = self.mv_Knoise_numpy(woodbury_vec_iter)

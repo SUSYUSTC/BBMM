@@ -30,7 +30,8 @@ class Test(unittest.TestCase):
             # must use the same random seed through the optimization!
             bbmm.solve_iter(Y, thres=thres, block_size=bs, compute_gradient=True, random_seed=0, compute_loglikelihood=False, lanczos_n_iter=20, debug=False, max_iter=1000)
             self.assertTrue(bbmm.converged)
-            opt.step(-bbmm.gradients.lengthscale, -bbmm.gradients.variance, -bbmm.gradients.noise)
+            # gradients: [variance, lengthscale, noise]
+            opt.step(-bbmm.gradients[1], -bbmm.gradients[0], -bbmm.gradients[2])
             #print(opt.history_grads[-1], [opt.lengthscale, opt.variance, opt.noise], end='\r')
             print(np.linalg.norm(opt.history_grads[-1]), end='\r')
             if len(opt.history_parameters) >= 5:
