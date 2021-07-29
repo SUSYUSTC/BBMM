@@ -311,27 +311,18 @@ class BBMM(object):
     def predict_train(self, vec):
         return self.mv_Knoise_numpy(vec)
 
-    '''
     def predict(self, X2, vec, training=False):
         #TODO: make it compatible with multiout
         if (self.nout > 1) and (not training):
             assert False, "Fix bug here"
         if self.GPU:
-            Npred = len(X2)
-            device_division = np.split(np.arange(Npred), [int(i * Npred / self.nGPU) for i in range(1, self.nGPU)])
-            preds = [None for i in range(self.nGPU)]
-            for i in range(self.nGPU):
-                with cp.cuda.Device(i):
-                    preds[i] = self.kernel.K(cp.asarray(X2[device_division[i]]), self.X[i]).dot(cp.asarray(vec))
-            for i in range(self.nGPU):
-                preds[i] = cp.asnumpy(preds[i])
-            result = np.concatenate(preds)
+            result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(cp.asarray(vec))
+            result = cp.asnumpy(result)
         else:
             result = self.kernel.K(X2, self.X).dot(vec)
         if training:
             result += vec * self.noise
         return result
-    '''
 
     def set_preconditioner(self, N_init, indices=None, debug=False, nGPU=0, random_seed=0):
         '''
@@ -524,7 +515,7 @@ class BBMM(object):
         area_dL_dps = [slice(block_size * (1 + i) + 1, block_size * (2 + i) + 1) for i in range(nps)]
         #area_dL_dl = slice(block_size + 1, block_size * 2 + 1)
         if compute_gradient:
-            self.block_Y = np.zeros((len(Y), block_size * (1+nps) + 1))
+            self.block_Y = np.zeros((len(Y), block_size * (1 + nps) + 1))
             self.block_Y[:, area_Y] = Y.copy()
             self.block_Y[:, area_I] = self.random_vectors.copy()
             for i in range(nps):
@@ -566,12 +557,16 @@ class BBMM(object):
             self.tr_I = np.sum(woodbury_vec_I * self.random_vectors) / block_size
             self.tr_dK_dps = [np.sum(woodbury_vec_dK_dps[i] * self.random_vectors) / block_size for i in range(nps)]
             dK_dps_dot_woodbury_vec = [self.mv_dK_dps_numpy(i, woodbury_vec_iter) for i in range(nps)]
-            Knoise_dot_woodbury_vec = self.mv_Knoise_numpy(woodbury_vec_iter)
-            K_dot_woodbury_vec = Knoise_dot_woodbury_vec - woodbury_vec_iter * self.noise
             dL_dps = [woodbury_vec_iter.T.dot(dK_dps_dot_woodbury_vec[i])[0, 0] / 2 - self.tr_dK_dps[i] / 2 for i in range(nps)]
-            #dL_dv = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (len(Y) - self.tr_I * self.noise) / 2) / self.kernel.ps[0]
             dL_dnoise = woodbury_vec_iter.T.dot(woodbury_vec_iter)[0, 0] / 2 - self.tr_I / 2
-            self.gradients = dL_dps + [dL_dnoise]
+            self.gradients = LL_gradient(*dL_dps, dL_dnoise)
+            #old = True
+            #if old:
+            #    Knoise_dot_woodbury_vec = self.mv_Knoise_numpy(woodbury_vec_iter)
+            #    K_dot_woodbury_vec = Knoise_dot_woodbury_vec - woodbury_vec_iter * self.noise
+            #    dL_dl = dL_dps[1]
+            #    dL_dv = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (len(Y) - self.tr_I * self.noise) / 2) / self.kernel.ps[0]
+            #    self.gradients = LL_gradient(dL_dv, dL_dl, dL_dnoise)
         else:
             real_solution = self.pred_nystroem.mv_invhalf(self.solution)
             real_solution = cp.asnumpy(real_solution)
