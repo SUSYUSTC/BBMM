@@ -500,6 +500,8 @@ class BBMM(object):
         block_size: int.
         thres: scalar. Convergence threshold.
         '''
+        if x0 is not None:
+            return self.solve_iter(Y - self.mv_Knoise_numpy(x0), block_size=block_size, thres=thres, compute_gradient=compute_gradient, random_seed=random_seed, compute_loglikelihood=compute_loglikelihood, lanczos_n_iter=lanczos_n_iter, debug=debug) + x0
         if self.main_GPU:
             xp = cp
             cp.cuda.Device(0).use()
@@ -507,8 +509,6 @@ class BBMM(object):
         else:
             xp = np
         # M^{-1/2} b
-        if x0 is not None:
-            return self.solve_iter(Y - self.mv_Knoise_numpy(x0), block_size=block_size, thres=thres, compute_gradient=compute_gradient, random_seed=random_seed, compute_loglikelihood=compute_loglikelihood, lanczos_n_iter=lanczos_n_iter, debug=debug)
         np.random.seed(random_seed)
         self.random_vectors = np.random.normal(size=(len(Y), block_size))
         if compute_loglikelihood:
@@ -520,13 +520,17 @@ class BBMM(object):
             self.lanczos_vectors = None
         area_Y = slice(0, 1)
         area_I = slice(1, block_size + 1)
-        area_dL_dl = slice(block_size + 1, block_size * 2 + 1)
+        nps = len(self.kernel.ps)
+        area_dL_dps = [slice(block_size * (1 + i) + 1, block_size * (2 + i) + 1) for i in range(nps)]
+        #area_dL_dl = slice(block_size + 1, block_size * 2 + 1)
         if compute_gradient:
-            self.block_Y = np.zeros((len(Y), block_size * 2 + 1))
+            self.block_Y = np.zeros((len(Y), block_size * (1+nps) + 1))
             self.block_Y[:, area_Y] = Y.copy()
             self.block_Y[:, area_I] = self.random_vectors.copy()
-            self.mv_dK_dl_random_vectors = self.mv_dK_dps_numpy(1, self.random_vectors)
-            self.block_Y[:, area_dL_dl] = self.mv_dK_dl_random_vectors.copy()
+            for i in range(nps):
+                self.block_Y[:, area_dL_dps[i]] = self.mv_dK_dps_numpy(i, self.random_vectors)
+            #self.mv_dK_dl_random_vectors = self.mv_dK_dps_numpy(1, self.random_vectors)
+            #self.block_Y[:, area_dL_dl] = self.mv_dK_dl_random_vectors.copy()
         else:
             self.block_Y = np.zeros((len(Y), block_size + 1))
             self.block_Y[:, area_Y] = Y.copy()
@@ -557,16 +561,17 @@ class BBMM(object):
             real_solution = cp.asnumpy(real_solution)
             woodbury_vec_iter = real_solution[:, area_Y].copy()
             woodbury_vec_I = real_solution[:, area_I].copy()
-            woodbury_vec_dK_dl = real_solution[:, area_dL_dl]
+            #woodbury_vec_dK_dl = real_solution[:, area_dL_dl]
+            woodbury_vec_dK_dps = [real_solution[:, area_dL_dps[i]] for i in range(nps)]
             self.tr_I = np.sum(woodbury_vec_I * self.random_vectors) / block_size
-            self.tr_dK_dl = np.sum(woodbury_vec_dK_dl * self.random_vectors) / block_size
-            dK_dl_dot_woodbury_vec = self.mv_dK_dps_numpy(1, woodbury_vec_iter)
+            self.tr_dK_dps = [np.sum(woodbury_vec_dK_dps[i] * self.random_vectors) / block_size for i in range(nps)]
+            dK_dps_dot_woodbury_vec = [self.mv_dK_dps_numpy(i, woodbury_vec_iter) for i in range(nps)]
             Knoise_dot_woodbury_vec = self.mv_Knoise_numpy(woodbury_vec_iter)
             K_dot_woodbury_vec = Knoise_dot_woodbury_vec - woodbury_vec_iter * self.noise
-            dL_dl = woodbury_vec_iter.T.dot(dK_dl_dot_woodbury_vec)[0, 0] / 2 - self.tr_dK_dl / 2
-            dL_dv = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (len(Y) - self.tr_I * self.noise) / 2) / self.kernel.ps[0]
+            dL_dps = [woodbury_vec_iter.T.dot(dK_dps_dot_woodbury_vec[i])[0, 0] / 2 - self.tr_dK_dps[i] / 2 for i in range(nps)]
+            #dL_dv = (woodbury_vec_iter.T.dot(K_dot_woodbury_vec)[0, 0] / 2 - (len(Y) - self.tr_I * self.noise) / 2) / self.kernel.ps[0]
             dL_dnoise = woodbury_vec_iter.T.dot(woodbury_vec_iter)[0, 0] / 2 - self.tr_I / 2
-            self.gradients = LL_gradient(dL_dv, dL_dl, dL_dnoise)
+            self.gradients = dL_dps + [dL_dnoise]
         else:
             real_solution = self.pred_nystroem.mv_invhalf(self.solution)
             real_solution = cp.asnumpy(real_solution)
