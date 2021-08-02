@@ -140,6 +140,7 @@ class BBMM(object):
         self.total_time_Kx = 0.0
         self.total_time_pred = 0.0
         self.total_time_CG = 0.0
+        self.GRAM_printed = False
 
     def _matrix_batch_CPU(self, method, vec):
         '''
@@ -462,15 +463,9 @@ class BBMM(object):
         '''
         self.total_time_CG += t_cg
         if self.verbose:
-            if i == 0:
-                if self.GPU:
-                    print("GPU Memory usage:", get_GRAM_usage(), file=self.file, flush=True)
-                #print('\n' * 4, end='', file=self.file, flush=True)
-            #print(up_line * 4, end='', file=self.file, flush=True)
-            #print(clear_line + "Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
-            #print(clear_line + "Time spent on CG (Nss):", t_cg, file=self.file, flush=True)
-            #print(clear_line + "Average time spent on kernel MMM (NNs):", self.total_time_Kx / self.iter, file=self.file, flush=True)
-            #print(clear_line + "Average time spent on preconditioner transformation (Nks):", self.total_time_pred / self.iter, file=self.file, flush=True)
+            if self.GPU and (not self.GRAM_printed):
+                print("GPU Memory usage:", get_GRAM_usage(), file=self.file, flush=True)
+                self.GRAM_printed = True
             print("Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
 
     def solve_iter(self, Y, x0=None, block_size=50, thres=1e-6, compute_gradient=False, random_seed=0, compute_loglikelihood=None, lanczos_n_iter=20, debug=False, max_iter=None):
