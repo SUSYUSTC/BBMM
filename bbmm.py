@@ -332,6 +332,7 @@ class BBMM(object):
             print("Start constructing Nystroem preconditioner:", file=self.file, flush=True)
         t1 = time.time()
         if self.verbose:
+            print("Total size:", self.N, file=self.file, flush=True)
             print("Preconditioner size:", N_init, file=self.file, flush=True)
         if nGPU == 0:
             if self.verbose:
