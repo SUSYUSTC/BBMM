@@ -108,7 +108,7 @@ class GP(object):
         else:
             callback = None
         begin = time.time()
-        transform_ps = [self.kernel.transform_ps[i](self.kernel.ps[i]) for i in range(len(self.kernel.ps))]
+        transform_ps = [self.kernel.transform_ps[i](self.kernel.ps[i].value) for i in range(len(self.kernel.ps))]
         transform_noise = np.log(self.noise)
         self.result = scipy.optimize.minimize(self.objective, transform_ps + [transform_noise], jac=True, method='L-BFGS-B', callback=callback, tol=tol)
         end = time.time()

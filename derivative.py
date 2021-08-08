@@ -18,25 +18,17 @@ class GeneralDerivative(Kernel):
         self.dim_K = slice(0, self.d)
         self.dims_grad = [slice(self.d * (i + 1), self.d * (i + 2)) for i in range(self.n)]
         self.kernel = kernel
-        self.ps = np.array(self.kernel.ps).copy()
-        self.set_ps = []
+        self.ps = self.kernel.ps
+        self.set_ps = self.kernel.set_ps
         self.dK_dps = []
-        self.transform_ps = []
-        self.d_transform_ps = []
-        self.inv_transform_ps = []
         for i in range(len(self.kernel.ps)):
-            def func(p, i=i):
-                self.kernel.set_ps[i](p)
-                self.ps = np.array(self.kernel.ps).copy()
-            self.set_ps.append(func)
-
             def func(X, X2=None, i=i, **kwargs):
                 return self.dK_dp(i, X, X2, **kwargs)
             self.dK_dps.append(func)
 
-            self.transform_ps.append(lambda x: self.kernel.transform_ps[i](x))
-            self.d_transform_ps.append(lambda x: self.kernel.d_transform_ps[i](x))
-            self.inv_transform_ps.append(lambda x: self.kernel.inv_transform_ps[i](x))
+        self.transform_ps = self.kernel.transform_ps
+        self.d_transform_ps = self.kernel.d_transform_ps
+        self.inv_transform_ps = self.kernel.inv_transform_ps
         super().__init__()
         self.check()
 
