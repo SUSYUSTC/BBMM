@@ -10,6 +10,14 @@ from .cache import Cache
 from . import kern
 
 
+def add(x, y):
+    return x + y
+
+
+def concatenate(ls):
+    return functools.reduce(add, ls)
+
+
 class ProductKernel(Kernel):
     def __init__(self, kern_list, dims=None):
         self.name = 'kern_operation.ProductKernel'
@@ -19,12 +27,12 @@ class ProductKernel(Kernel):
         self.cumsum = np.concatenate([np.array([0]), np.cumsum(self.nps)])
         self.cache_K = {}
         self.cache_dK_dp = {}
-        self.ps = np.concatenate([k.ps for k in self.kern_list])
-        self.set_ps = []
+        self.ps = concatenate([k.ps for k in self.kern_list])
+        self.set_ps = concatenate([k.set_ps for k in self.kern_list])
         self.dK_dps = []
-        self.transform_ps = []
-        self.d_transform_ps = []
-        self.inv_transform_ps = []
+        self.transform_ps = concatenate([k.transform_ps for k in self.kern_list])
+        self.d_transform_ps = concatenate([k.d_transform_ps for k in self.kern_list])
+        self.inv_transform_ps = concatenate([k.inv_transform_ps for k in self.kern_list])
         self.default_cache = {}
         if dims is None:
             self.dims = [slice(None, None, None) for i in range(self.nk)]
@@ -34,18 +42,9 @@ class ProductKernel(Kernel):
         for i in range(len(self.ps)):
             kern_index, pos_index = self.get_pos(i)
 
-            def func(p, kern_index=kern_index, pos_index=pos_index):
-                self.kern_list[kern_index].set_ps[pos_index](p)
-                self.ps = np.concatenate([k.ps for k in self.kern_list])
-            self.set_ps.append(func)
-
             def func(X, X2=None, i=i, **kwargs):
                 return self.dK_dp(i, X, X2, **kwargs)
             self.dK_dps.append(func)
-
-            self.transform_ps.append(lambda x: self.kern_list[kern_index].transform_ps[pos_index](x))
-            self.d_transform_ps.append(lambda x: self.kern_list[kern_index].d_transform_ps[pos_index](x))
-            self.inv_transform_ps.append(lambda x: self.kern_list[kern_index].inv_transform_ps[pos_index](x))
         super().__init__()
         self.check()
 

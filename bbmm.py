@@ -401,13 +401,13 @@ class BBMM(object):
             self.K_guess = K21.dot(LA.inv(self.K11 + I * self.noise)).dot(K21.T)
             self.err_K_guess_qr = self.Q.dot(self.K_core).dot(self.Q.T) - self.K_guess
             if self.verbose:
-                print("Error of K_guess after QR:", np.max(np.abs(self.err_K_guess_qr)) / self.kernel.ps[0])
+                print("Error of K_guess after QR:", np.max(np.abs(self.err_K_guess_qr)) / self.kernel.ps[0].value)
             self.invhalf_eigvals = 1 / np.sqrt(self.eigvals + self.noise) - 1 / np.sqrt(self.noise)
             # Some numerical issues here
             self.K_pred_invhalf = self.U.dot(np.diag(self.invhalf_eigvals)).dot(self.U.T) + np.eye(self.N_out) / np.sqrt(self.noise)
             self.err_eigdecomposition = self.K_pred_invhalf.dot(self.K_guess + np.eye(self.N_out) * self.noise).dot(self.K_pred_invhalf) - np.eye(self.N_out)
             if self.verbose:
-                print("Error of Eigenvalue Decomposition:", np.max(np.abs(self.err_eigdecomposition)) / self.kernel.ps[0])
+                print("Error of Eigenvalue Decomposition:", np.max(np.abs(self.err_eigdecomposition)) / self.kernel.ps[0].value)
             self.K_pred = self.K_pred_invhalf.dot(self.K_full_np + np.eye(self.N_out) * self.noise).dot(self.K_pred_invhalf)
             self.eigvals_K_pred = LA.eigvalsh(self.K_pred)
             if self.verbose:
