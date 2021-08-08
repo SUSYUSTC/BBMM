@@ -86,8 +86,10 @@ class GP(object):
 
     def objective(self, transform_ps_noise):
         transform_ps = transform_ps_noise[0:-1]
-        ps = [self.kernel.inv_transform_ps[i](transform_ps[i]) for i in range(len(transform_ps))]
-        d_transform_ps = [self.kernel.d_transform_ps[i](ps[i]) for i in range(len(ps))]
+        ps = [self.kernel.transformations[i].inv(transform_ps[i]) for i in range(len(transform_ps))]
+        print('ps', ps)
+        d_transform_ps = [self.kernel.transformations[i].d(ps[i]) for i in range(len(ps))]
+        print('d_transform_ps', d_transform_ps)
         transform_noise = transform_ps_noise[-1]
         noise = np.exp(transform_noise)
         d_transform_noise = 1 / noise
@@ -98,6 +100,7 @@ class GP(object):
         return result
 
     def opt_callback(self, x):
+        print('x', x)
         print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
 
     def optimize(self, messages=False, tol=1e-6):
@@ -108,7 +111,7 @@ class GP(object):
         else:
             callback = None
         begin = time.time()
-        transform_ps = [self.kernel.transform_ps[i](self.kernel.ps[i].value) for i in range(len(self.kernel.ps))]
+        transform_ps = [self.kernel.transformations[i](self.kernel.ps[i].value) for i in range(len(self.kernel.ps))]
         transform_noise = np.log(self.noise)
         self.result = scipy.optimize.minimize(self.objective, transform_ps + [transform_noise], jac=True, method='L-BFGS-B', callback=callback, tol=tol)
         end = time.time()

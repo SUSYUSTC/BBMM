@@ -30,9 +30,7 @@ class ProductKernel(Kernel):
         self.ps = concatenate([k.ps for k in self.kern_list])
         self.set_ps = concatenate([k.set_ps for k in self.kern_list])
         self.dK_dps = []
-        self.transform_ps = concatenate([k.transform_ps for k in self.kern_list])
-        self.d_transform_ps = concatenate([k.d_transform_ps for k in self.kern_list])
-        self.inv_transform_ps = concatenate([k.inv_transform_ps for k in self.kern_list])
+        self.transformations = concatenate([k.transformations for k in self.kern_list])
         self.default_cache = {}
         if dims is None:
             self.dims = [slice(None, None, None) for i in range(self.nk)]

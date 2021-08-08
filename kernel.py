@@ -9,9 +9,7 @@ class Kernel(object):
         assert hasattr(self, 'ps')
         assert hasattr(self, 'set_ps')
         assert hasattr(self, 'dK_dps')
-        assert hasattr(self, 'transform_ps')
-        assert hasattr(self, 'd_transform_ps')
-        assert hasattr(self, 'inv_transform_ps')
+        assert hasattr(self, 'transformations')
 
     def set_all_ps(self, params):
         assert len(params) == len(self.ps)

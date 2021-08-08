@@ -7,6 +7,7 @@ except BaseException:
 from .kernel import Kernel
 from .cache import Cache
 from . import kern
+from .param import Param
 
 
 class GeneralDerivative(Kernel):
@@ -26,9 +27,7 @@ class GeneralDerivative(Kernel):
                 return self.dK_dp(i, X, X2, **kwargs)
             self.dK_dps.append(func)
 
-        self.transform_ps = self.kernel.transform_ps
-        self.d_transform_ps = self.kernel.d_transform_ps
-        self.inv_transform_ps = self.kernel.inv_transform_ps
+        self.transformations = self.kernel.transformations
         super().__init__()
         self.check()
 
@@ -75,6 +74,11 @@ class FullDerivative(GeneralDerivative):
     def __init__(self, kernel, n, d):
         self.name = 'derivative.FullDerivative'
         super().__init__(kernel, n, d)
+        self.ps.append(Param('factor', 1.0))
+        self.set_ps.append(self.set_factor)
+
+    def set_factor(self, factor):
+        self.ps[-1].value = factor
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
         if gpu_available:

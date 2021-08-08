@@ -9,6 +9,7 @@ except BaseException:
 from .kernel import Kernel
 from .cache import Cache
 from .param import Param
+from . import param_transformation
 
 
 class Stationary(Kernel):
@@ -19,40 +20,18 @@ class Stationary(Kernel):
         self.d2K_dpsdX = [self.d2K_dXdv, self.d2K_dXdl]
         self.d2K_dpsdX2 = [self.d2K_dX2dv, self.d2K_dX2dl]
         self.d3K_dpsdXdX2 = [self.d3K_dXdX2dv, self.d3K_dXdX2dl]
-        self.variance = 1.0
-        self.lengthscale = 1.0
-        self.ps = [Param('variance', self.variance), Param('lengthscale', self.lengthscale)]
+        self.ps = [Param('variance', 1.0), Param('lengthscale', 1.0)]
+        self.variance = self.ps[0].value
+        self.lengthscale = self.ps[1].value
         self.set_ps = [self.set_variance, self.set_lengthscale]
-        self.transform_ps = [self.transform_variance, self.transform_lengthscale]
-        self.inv_transform_ps = [self.inv_transform_variance, self.inv_transform_lengthscale]
-        self.d_transform_ps = [self.d_transform_variance, self.d_transform_lengthscale]
+        self.transformations = [param_transformation.log, param_transformation.log]
         self.check()
 
     def set_variance(self, variance):
-        self.variance = variance
         self.ps[0].value = self.variance
 
     def set_lengthscale(self, lengthscale):
-        self.lengthscale = lengthscale
         self.ps[1].value = self.lengthscale
-
-    def transform_variance(self, variance):
-        return np.log(variance)
-
-    def transform_lengthscale(self, lengthscale):
-        return np.log(lengthscale)
-
-    def inv_transform_variance(self, t_variance):
-        return np.exp(t_variance)
-
-    def inv_transform_lengthscale(self, t_lengthscale):
-        return np.exp(t_lengthscale)
-
-    def d_transform_variance(self, variance):
-        return 1/variance
-
-    def d_transform_lengthscale(self, lengthscale):
-        return 1/lengthscale
 
     def K_of_r(self, r):
         raise NotImplementedError
