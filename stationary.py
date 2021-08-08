@@ -21,17 +21,17 @@ class Stationary(Kernel):
         self.d2K_dpsdX2 = [self.d2K_dX2dv, self.d2K_dX2dl]
         self.d3K_dpsdXdX2 = [self.d3K_dXdX2dv, self.d3K_dXdX2dl]
         self.ps = [Param('variance', 1.0), Param('lengthscale', 1.0)]
-        self.variance = self.ps[0].value
-        self.lengthscale = self.ps[1].value
+        self.variance = self.ps[0]
+        self.lengthscale = self.ps[1]
         self.set_ps = [self.set_variance, self.set_lengthscale]
         self.transformations = [param_transformation.log, param_transformation.log]
         self.check()
 
     def set_variance(self, variance):
-        self.ps[0].value = self.variance
+        self.ps[0].value = variance
 
     def set_lengthscale(self, lengthscale):
-        self.ps[1].value = self.lengthscale
+        self.ps[1].value = lengthscale
 
     def K_of_r(self, r):
         raise NotImplementedError
@@ -71,7 +71,7 @@ class Stationary(Kernel):
         distance -= X1.dot(X2.T) * 2
         # Add a small number to avoid calculating square root of a negative number
         distance += 1e-12
-        return xp.sqrt(distance) / self.lengthscale
+        return xp.sqrt(distance) / self.lengthscale.value
 
     @Cache('no')
     def K(self, X1, X2=None):
@@ -96,21 +96,21 @@ class Stationary(Kernel):
     def dr_dX(self, X1, X2, dX1, r):
         if X2 is None:
             X2 = X1
-        return self.Xdiff_dX(X1, X2, dX1) / r / self.lengthscale ** 2
+        return self.Xdiff_dX(X1, X2, dX1) / r / self.lengthscale.value ** 2
 
     @Cache('gd2')
     def dr_dX2(self, X1, X2, dX2, r):
         if X2 is None:
             X2 = X1
-        return self.Xdiff_dX2(X1, X2, dX2) / r / self.lengthscale ** 2
+        return self.Xdiff_dX2(X1, X2, dX2) / r / self.lengthscale.value ** 2
 
     def d2r_dXdX2(self, X1, X2, dX1, dX2, r):
         if X2 is None:
             X2 = X1
-        return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T) / self.lengthscale ** 2) / r
+        return (-self.dr_dX(X1, X2, dX1, r) * self.dr_dX2(X1, X2, dX2, r) - dX1.dot(dX2.T) / self.lengthscale.value ** 2) / r
 
     def dr_dl(self, r):
-        return -r / self.lengthscale
+        return -r / self.lengthscale.value
 
     @Cache('no')
     def dK_dl(self, X1, X2=None):
@@ -119,23 +119,23 @@ class Stationary(Kernel):
 
     @Cache('g')
     def d2K_drdl(self, r):
-        return self.d2K_drdr(r) * self.dr_dl(r) - self.dK_dr(r) / self.lengthscale
+        return self.d2K_drdr(r) * self.dr_dl(r) - self.dK_dr(r) / self.lengthscale.value
 
     @Cache('g')
     def d3K_drdrdl(self, r):
-        return self.d3K_drdrdr(r) * self.dr_dl(r) - self.d2K_drdr(r) / self.lengthscale * 2
+        return self.d3K_drdrdr(r) * self.dr_dl(r) - self.d2K_drdr(r) / self.lengthscale.value * 2
 
     @Cache('no')
     def dK_dv(self, X1, X2=None):
-        return self.K(X1, X2) / self.variance
+        return self.K(X1, X2) / self.variance.value
 
     @Cache('g')
     def d2K_drdv(self, r):
-        return self.dK_dr(r) / self.variance
+        return self.dK_dr(r) / self.variance.value
 
     @Cache('g')
     def d3K_drdrdv(self, r):
-        return self.d2K_drdr(r) / self.variance
+        return self.d2K_drdr(r) / self.variance.value
 
     # Start fake methods
     def _fake_dK_dX(self, method1, X1, dX1, X2=None):
@@ -194,7 +194,7 @@ class Stationary(Kernel):
             xp = cp.get_array_module(dX)
         else:
             xp = np
-        return xp.ones((dX.shape[0],)) * self.variance
+        return xp.ones((dX.shape[0],)) * self.variance.value
 
     def d2K_dXdX_0(self, dX):
         if gpu_available:
@@ -218,8 +218,8 @@ class Stationary(Kernel):
 
     def to_dict(self):
         data = {
-            'lengthscale': self.lengthscale,
-            'variance': self.variance,
+            'lengthscale': self.lengthscale.value,
+            'variance': self.variance.value,
             'name': self.name
         }
         return data
@@ -260,7 +260,7 @@ class RBF(Stationary):
             xp = cp.get_array_module(r)
         else:
             xp = np
-        return xp.exp(-r**2 / 2) * self.variance
+        return xp.exp(-r**2 / 2) * self.variance.value
 
     @Cache('g')
     def dK_dr(self, r):
@@ -268,7 +268,7 @@ class RBF(Stationary):
             xp = cp.get_array_module(r)
         else:
             xp = np
-        return -xp.exp(-r**2 / 2) * r * self.variance
+        return -xp.exp(-r**2 / 2) * r * self.variance.value
 
     @Cache('g')
     def d2K_drdr(self, r):
@@ -276,7 +276,7 @@ class RBF(Stationary):
             xp = cp.get_array_module(r)
         else:
             xp = np
-        return xp.exp(-r**2 / 2) * (r**2 - 1) * self.variance
+        return xp.exp(-r**2 / 2) * (r**2 - 1) * self.variance.value
 
     @Cache('no')
     def d3K_drdrdr(self, r):
@@ -284,10 +284,10 @@ class RBF(Stationary):
             xp = cp.get_array_module(r)
         else:
             xp = np
-        return xp.exp(-r**2 / 2) * (3 - r**2) * r * self.variance
+        return xp.exp(-r**2 / 2) * (3 - r**2) * r * self.variance.value
 
     def dK_dR0_0(self):
-        return -0.5 / self.lengthscale ** 2 * self.variance
+        return -0.5 / self.lengthscale.value ** 2 * self.variance.value
 
 
 class Matern32(Stationary):
@@ -316,7 +316,7 @@ class Matern32(Stationary):
         else:
             xp = np
         s3 = xp.sqrt(3.)
-        return (1. + s3 * r) * xp.exp(-s3 * r) * self.variance
+        return (1. + s3 * r) * xp.exp(-s3 * r) * self.variance.value
 
     @Cache('g')
     def dK_dr(self, r):
@@ -325,7 +325,7 @@ class Matern32(Stationary):
         else:
             xp = np
         s3 = xp.sqrt(3.)
-        return - 3 * r * xp.exp(-s3 * r) * self.variance
+        return - 3 * r * xp.exp(-s3 * r) * self.variance.value
 
     @Cache('g')
     def d2K_drdr(self, r):
@@ -334,7 +334,7 @@ class Matern32(Stationary):
         else:
             xp = np
         s3 = xp.sqrt(3.)
-        return (s3 * r - 1) * 3 * xp.exp(-s3 * r) * self.variance
+        return (s3 * r - 1) * 3 * xp.exp(-s3 * r) * self.variance.value
 
     @Cache('no')
     def d3K_drdrdr(self, r):
@@ -343,10 +343,10 @@ class Matern32(Stationary):
         else:
             xp = np
         s3 = xp.sqrt(3.)
-        return (s3 * 2 - r * 3) * 3 * xp.exp(-s3 * r) * self.variance
+        return (s3 * 2 - r * 3) * 3 * xp.exp(-s3 * r) * self.variance.value
 
     def dK_dR0_0(self):
-        return -1.5 / self.lengthscale ** 2 * self.variance
+        return -1.5 / self.lengthscale.value ** 2 * self.variance.value
 
 
 class Matern52(Stationary):
@@ -375,7 +375,7 @@ class Matern52(Stationary):
         else:
             xp = np
         s5 = xp.sqrt(5)
-        return (1 + s5 * r + 5. / 3 * r**2) * xp.exp(-s5 * r) * self.variance
+        return (1 + s5 * r + 5. / 3 * r**2) * xp.exp(-s5 * r) * self.variance.value
 
     @Cache('g')
     def dK_dr(self, r):
@@ -384,7 +384,7 @@ class Matern52(Stationary):
         else:
             xp = np
         s5 = xp.sqrt(5)
-        return (- 5.0 / 3 * r - 5. * s5 / 3 * r**2) * xp.exp(-s5 * r) * self.variance
+        return (- 5.0 / 3 * r - 5. * s5 / 3 * r**2) * xp.exp(-s5 * r) * self.variance.value
 
     @Cache('g')
     def d2K_drdr(self, r):
@@ -393,7 +393,7 @@ class Matern52(Stationary):
         else:
             xp = np
         s5 = xp.sqrt(5)
-        return (-1 - s5 * r + 5. * r**2) * 5 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
+        return (-1 - s5 * r + 5. * r**2) * 5 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance.value
 
     @Cache('no')
     def d3K_drdrdr(self, r):
@@ -402,7 +402,7 @@ class Matern52(Stationary):
         else:
             xp = np
         s5 = xp.sqrt(5)
-        return (3 * r - s5 * r**2) * 25 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance
+        return (3 * r - s5 * r**2) * 25 / 3 * xp.exp(-xp.sqrt(5.) * r) * self.variance.value
 
     def dK_dR0_0(self):
-        return -5.0 / 6 / self.lengthscale ** 2 * self.variance
+        return -5.0 / 6 / self.lengthscale.value ** 2 * self.variance.value

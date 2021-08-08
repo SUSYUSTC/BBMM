@@ -2,11 +2,13 @@ import numpy as np
 from . import kern
 import time
 import sys
+from . import param_transformation
 
 
 class GP(object):
     def __init__(self, X, Y, kernel, noise, GPU=False, file=None):
         self.kernel = kernel
+        self.transformations_group = param_transformation.Group(kernel.transformations + [param_transformation.log])
         self.noise = noise
         self.GPU = GPU
         if GPU:
@@ -78,29 +80,21 @@ class GP(object):
         return self.kernel.K(X, self.X).dot(self.w)
 
     def update(self, ps, noise):
-        for i in range(len(ps)):
-            self.kernel.set_ps[i](ps[i])
+        self.kernel.set_all_ps(ps)
         self.noise = noise
         self.kernel.clear_cache()
         self.params = np.array(ps + [noise])
 
     def objective(self, transform_ps_noise):
-        transform_ps = transform_ps_noise[0:-1]
-        ps = [self.kernel.transformations[i].inv(transform_ps[i]) for i in range(len(transform_ps))]
-        print('ps', ps)
-        d_transform_ps = [self.kernel.transformations[i].d(ps[i]) for i in range(len(ps))]
-        print('d_transform_ps', d_transform_ps)
-        transform_noise = transform_ps_noise[-1]
-        noise = np.exp(transform_noise)
-        d_transform_noise = 1 / noise
-        self.update(ps, noise)
+        ps_noise = self.transformations_group.inv(transform_ps_noise)
+        d_transform_ps_noise = self.transformations_group.d(ps_noise)
+        self.update(ps_noise[:-1], ps_noise[-1])
         self.fit(grad=True)
-        self.transform_gradient = self.gradient / np.array(d_transform_ps + [d_transform_noise])
+        self.transform_gradient = self.gradient / np.array(d_transform_ps_noise)
         result = (-self.ll, -self.transform_gradient)
         return result
 
     def opt_callback(self, x):
-        print('x', x)
         print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
 
     def optimize(self, messages=False, tol=1e-6):
