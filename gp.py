@@ -30,6 +30,7 @@ class GP(object):
             self.file = file
 
     def fit(self, grad=False):
+        self.grad = grad
         K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache) + self.xp.eye(self.N) * self.noise
         L = self.xp.linalg.cholesky(K_noise)
         w_int = self.xp_solve_triangular(L, self.Y, lower=True, trans=0)
@@ -57,8 +58,12 @@ class GP(object):
             'X': self.X,
             'Y': self.Y,
             'w': self.w,
-            'noise': self.noise
+            'noise': self.noise,
+            'grad': self.grad,
         }
+        if self.grad:
+            data['ll'] = self.ll
+            data['gradient'] = self.gradient
         np.savez(path, **data)
 
     @classmethod
@@ -96,6 +101,7 @@ class GP(object):
 
     def opt_callback(self, x):
         print('x', x)
+        print('gradient', self.transform_gradient, file=self.file, flush=True)
         print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
 
     def optimize(self, messages=False, tol=1e-6):

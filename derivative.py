@@ -48,24 +48,6 @@ class GeneralDerivative(Kernel):
         self.cache_data = {}
         self.kernel.clear_cache()
 
-    def to_dict(self):
-        data = {
-            'name': self.name,
-            'n': self.n,
-            'd': self.d,
-            'kern': self.kernel.to_dict()
-        }
-        return data
-
-    @classmethod
-    def from_dict(self, data):
-        n = data['n']
-        d = data['d']
-        kern_dict = data['kern']
-        kernel = kern.get_kern_obj(kern_dict)
-        result = self(kernel, n, d)
-        return result
-
     def set_cache_state(self, state):
         self.cache_state = state
         self.kernel.set_cache_state(state)
@@ -76,6 +58,7 @@ class FullDerivative(GeneralDerivative):
         self.name = 'derivative.FullDerivative'
         super().__init__(kernel, n, d)
         self.factor = Param('factor', 1.0)
+        self.optfactor = optfactor
         if optfactor:
             self.ps.append(self.factor)
             self.set_ps.append(self.set_factor)
@@ -148,6 +131,29 @@ class FullDerivative(GeneralDerivative):
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.dK_dl_0(X_K)] + [self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
 
+    def to_dict(self):
+        data = {
+            'name': self.name,
+            'n': self.n,
+            'd': self.d,
+            'optfactor': self.optfactor,
+            'factor': self.factor.value,
+            'kern': self.kernel.to_dict(),
+        }
+        return data
+
+    @classmethod
+    def from_dict(self, data):
+        n = data['n']
+        d = data['d']
+        factor = data['factor']
+        optfactor = data['optfactor']
+        kern_dict = data['kern']
+        kernel = kern.get_kern_obj(kern_dict)
+        result = self(kernel, n, d, optfactor=optfactor)
+        result.set_factor(factor)
+        return result
+
 
 class Derivative(GeneralDerivative):
     def __init__(self, kernel, n, d):
@@ -197,3 +203,21 @@ class Derivative(GeneralDerivative):
             xp = np
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
+
+    def to_dict(self):
+        data = {
+            'name': self.name,
+            'n': self.n,
+            'd': self.d,
+            'kern': self.kernel.to_dict()
+        }
+        return data
+
+    @classmethod
+    def from_dict(self, data):
+        n = data['n']
+        d = data['d']
+        kern_dict = data['kern']
+        kernel = kern.get_kern_obj(kern_dict)
+        result = self(kernel, n, d)
+        return result
