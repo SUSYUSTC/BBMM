@@ -8,6 +8,7 @@ from .kernel import Kernel
 from .cache import Cache
 from . import kern
 from .param import Param
+from . import param_transformation
 
 
 class GeneralDerivative(Kernel):
@@ -71,16 +72,28 @@ class GeneralDerivative(Kernel):
 
 
 class FullDerivative(GeneralDerivative):
-    def __init__(self, kernel, n, d):
+    def __init__(self, kernel, n, d, factor=False):
         self.name = 'derivative.FullDerivative'
         super().__init__(kernel, n, d)
-        self.ps.append(Param('factor', 1.0))
-        self.set_ps.append(self.set_factor)
+        self.factor = Param('factor', 1.0)
+        if factor:
+            self.ps.append(self.factor)
+            self.set_ps.append(self.set_factor)
+            self.dK_dps.append(self.dK_dfactor)
+            self.transformations.append(param_transformation.log)
 
     def set_factor(self, factor):
-        self.ps[-1].value = factor
+        self.factor.value = factor
 
-    def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
+    def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2, d_factor=False):
+        if d_factor:
+            c0 = 0
+            c1 = 1
+            c2 = self.factor.value * 2
+        else:
+            c0 = 1
+            c1 = self.factor.value
+            c2 = self.factor.value ** 2
         if gpu_available:
             xp = cp.get_array_module(X)
         else:
@@ -94,14 +107,14 @@ class FullDerivative(GeneralDerivative):
         X2_K = X2[:, self.dim_K]
         X2_grad = [X2[:, dim] for dim in self.dims_grad]
         result = xp.zeros((N * (self.n + 1), N2 * (self.n + 1)))
-        result[0:N, 0:N2] = K(X[:, self.dim_K], X2[:, self.dim_K], cache={'g': 0})
+        result[0:N, 0:N2] = K(X[:, self.dim_K], X2[:, self.dim_K], cache={'g': 0}) * c0
         for i in range(self.n):
-            result[N * (i + 1): N * (i + 2), 0:N2] = dK_dX(X_K, X_grad[i], X2=X2_K, cache={'gd1': i, 'g': 0})
+            result[N * (i + 1): N * (i + 2), 0:N2] = dK_dX(X_K, X_grad[i], X2=X2_K, cache={'gd1': i, 'g': 0}) * c1
         for j in range(self.n):
-            result[0:N, N2 * (j + 1):N2 * (j + 2)] = dK_dX2(X_K, X2_grad[j], X2=X2_K, cache={'gd2': j, 'g': 0})
+            result[0:N, N2 * (j + 1):N2 * (j + 2)] = dK_dX2(X_K, X2_grad[j], X2=X2_K, cache={'gd2': j, 'g': 0}) * c1
         for i in range(self.n):
             for j in range(self.n):
-                result[N * (i + 1): N * (i + 2), N2 * (j + 1):N2 * (j + 2)] = d2K_dXdX2(X_K, X_grad[i], X2_grad[j], X2=X2_K, cache={'gdd': (i, j), 'gd1': i, 'gd2': j, 'g': 0})
+                result[N * (i + 1): N * (i + 2), N2 * (j + 1):N2 * (j + 2)] = d2K_dXdX2(X_K, X_grad[i], X2_grad[j], X2=X2_K, cache={'gdd': (i, j), 'gd1': i, 'gd2': j, 'g': 0}) * c2
         return result
 
     @Cache('g')
@@ -111,6 +124,10 @@ class FullDerivative(GeneralDerivative):
     @Cache('g')
     def dK_dp(self, i, X, X2=None):
         return self._fake_K(X, X2, self.kernel.dK_dps[i], self.kernel.d2K_dpsdX[i], self.kernel.d2K_dpsdX2[i], self.kernel.d3K_dpsdXdX2[i])
+
+    @Cache('g')
+    def dK_dfactor(self, X, X2=None):
+        return self._fake_K(X, X2, self.kernel.K, self.kernel.dK_dX, self.kernel.dK_dX2, self.kernel.d2K_dXdX2, True)
 
     @Cache('g')
     def Kdiag(self, X):

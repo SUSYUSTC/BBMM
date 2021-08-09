@@ -20,18 +20,18 @@ class Stationary(Kernel):
         self.d2K_dpsdX = [self.d2K_dXdv, self.d2K_dXdl]
         self.d2K_dpsdX2 = [self.d2K_dX2dv, self.d2K_dX2dl]
         self.d3K_dpsdXdX2 = [self.d3K_dXdX2dv, self.d3K_dXdX2dl]
-        self.ps = [Param('variance', 1.0), Param('lengthscale', 1.0)]
-        self.variance = self.ps[0]
-        self.lengthscale = self.ps[1]
+        self.variance = Param('variance', 1.0)
+        self.lengthscale = Param('lengthscale', 1.0)
+        self.ps = [self.variance, self.lengthscale]
         self.set_ps = [self.set_variance, self.set_lengthscale]
         self.transformations = [param_transformation.log, param_transformation.log]
         self.check()
 
     def set_variance(self, variance):
-        self.ps[0].value = variance
+        self.variance.value = variance
 
     def set_lengthscale(self, lengthscale):
-        self.ps[1].value = lengthscale
+        self.lengthscale.value = lengthscale
 
     def K_of_r(self, r):
         raise NotImplementedError
@@ -211,7 +211,7 @@ class Stationary(Kernel):
         return xp.zeros((dX.shape[0],))
 
     def d3K_dldXdX_0(self, dX):
-        return - self.d2K_dXdX_0(dX) * 2 / self.lengthscale
+        return - self.d2K_dXdX_0(dX) * 2 / self.lengthscale.value
 
     def clear_cache(self):
         self.cache_data = {}

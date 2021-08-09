@@ -95,6 +95,7 @@ class GP(object):
         return result
 
     def opt_callback(self, x):
+        print('x', x)
         print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
 
     def optimize(self, messages=False, tol=1e-6):
