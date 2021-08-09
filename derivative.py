@@ -72,11 +72,11 @@ class GeneralDerivative(Kernel):
 
 
 class FullDerivative(GeneralDerivative):
-    def __init__(self, kernel, n, d, factor=False):
+    def __init__(self, kernel, n, d, optfactor=False):
         self.name = 'derivative.FullDerivative'
         super().__init__(kernel, n, d)
         self.factor = Param('factor', 1.0)
-        if factor:
+        if optfactor:
             self.ps.append(self.factor)
             self.set_ps.append(self.set_factor)
             self.dK_dps.append(self.dK_dfactor)

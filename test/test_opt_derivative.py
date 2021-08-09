@@ -39,7 +39,7 @@ class Test(unittest.TestCase):
         stationary_kernel = getattr(BBMM.kern, kernelname)()
         stationary_kernel.set_lengthscale(lengthscale)
         stationary_kernel.set_variance(variance)
-        ka = BBMM.kern.FullDerivative(stationary_kernel, n, d, factor=False)
+        ka = BBMM.kern.FullDerivative(stationary_kernel, n, d, optfactor=False)
         gp = BBMM.GP(X, Y, ka, 1e-4)
         gp.optimize()
         err = (gp.params - refs[kernelname])/refs[kernelname]
@@ -50,7 +50,7 @@ class Test(unittest.TestCase):
         stationary_kernel = getattr(BBMM.kern, kernelname)()
         stationary_kernel.set_lengthscale(lengthscale)
         stationary_kernel.set_variance(variance)
-        ka = BBMM.kern.FullDerivative(stationary_kernel, n, d, factor=True)
+        ka = BBMM.kern.FullDerivative(stationary_kernel, n, d, optfactor=True)
         gp = BBMM.GP(X, Y, ka, 1e-4)
         gp.optimize()
         err = (gp.params - refs_factor[kernelname])/refs_factor[kernelname]
