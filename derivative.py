@@ -146,8 +146,14 @@ class FullDerivative(GeneralDerivative):
     def from_dict(self, data):
         n = data['n']
         d = data['d']
-        factor = data['factor']
-        optfactor = data['optfactor']
+        if 'factor' in data:
+            factor = data['factor']
+        else:
+            factor = 1.0
+        if 'optfactor' in data:
+            optfactor = data['optfactor']
+        else:
+            optfactor = False
         kern_dict = data['kern']
         kernel = kern.get_kern_obj(kern_dict)
         result = self(kernel, n, d, optfactor=optfactor)
