@@ -1,6 +1,5 @@
 import numpy as np
 import BBMM
-import time
 import unittest
 
 np.random.seed(0)
@@ -43,7 +42,7 @@ class Test(unittest.TestCase):
         gp = BBMM.GP(X, Y, ka, 1e-4)
         gp.optimize()
         err = (gp.params - refs[kernelname])/refs[kernelname]
-        self.assertTrue(np.max(np.abs(err)) < 1e-6)
+        self.assertTrue(np.max(np.abs(err)) < 1e-5)
 
     def _run_factor(self, kernelname):
         print(kernelname)
@@ -54,7 +53,7 @@ class Test(unittest.TestCase):
         gp = BBMM.GP(X, Y, ka, 1e-4)
         gp.optimize()
         err = (gp.params - refs_factor[kernelname])/refs_factor[kernelname]
-        self.assertTrue(np.max(np.abs(err)) < 1e-6)
+        self.assertTrue(np.max(np.abs(err)) < 1e-5)
 
     def test_RBF(self):
         self._run_nofactor('RBF')

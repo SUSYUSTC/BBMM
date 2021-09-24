@@ -36,7 +36,8 @@ class GP(object):
         w_int = self.xp_solve_triangular(L, self.Y, lower=True, trans=0)
         self.w = self.xp_solve_triangular(L, w_int, lower=True, trans=1)
         if grad:
-            logdet = self.xp.linalg.slogdet(K_noise)[1]
+            #logdet = self.xp.linalg.slogdet(K_noise)[1]
+            logdet = np.sum(np.log(np.diag(L)))*2
             del K_noise
             Linv = self.xp_solve_triangular(L, self.xp.eye(self.N), lower=True, trans=0)
             del L
@@ -53,36 +54,57 @@ class GP(object):
                 self.gradient = self.gradient.get()
 
     def save(self, path):
-        data = {
-            'kernel': self.kernel.to_dict(),
-            'X': self.X,
-            'Y': self.Y,
-            'w': self.w,
-            'noise': self.noise,
-            'grad': self.grad,
-        }
+        if self.GPU:
+            data = {
+                'kernel': self.kernel.to_dict(),
+                'X': self.xp.asnumpy(self.X),
+                'Y': self.xp.asnumpy(self.Y),
+                'w': self.xp.asnumpy(self.w),
+                'noise': self.noise,
+                'grad': self.grad,
+            }
+        else:
+            data = {
+                'kernel': self.kernel.to_dict(),
+                'X': self.X,
+                'Y': self.Y,
+                'w': self.w,
+                'noise': self.noise,
+                'grad': self.grad,
+            }
         if self.grad:
             data['ll'] = self.ll
             data['gradient'] = self.gradient
         np.savez(path, **data)
 
     @classmethod
-    def from_dict(self, data):
-        result = GP.__new__(GP)
+    def from_dict(self, data, GPU):
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
-        result = self(data['X'], data['Y'], kernel, noise=data['noise'][()])
-        result.w = data['w']
+        result = GP(data['X'], data['Y'], kernel, noise=data['noise'][()], GPU=GPU)
+        if GPU:
+            result.w = result.xp.asarray(data['w'])
+        else:
+            result.w = data['w']
         return result
 
     @classmethod
-    def load(self, path):
+    def load(self, path, GPU):
         data = dict(np.load(path, allow_pickle=True))
-        return self.from_dict(data)
+        return self.from_dict(data, GPU)
 
-    def predict(self, X):
+    def predict(self, X, training=False):
         self.kernel.clear_cache()
-        return self.kernel.K(X, self.X).dot(self.w)
+        if self.GPU:
+            result = self.xp.asnumpy(self.kernel.K(self.xp.asarray(X), self.X).dot(self.w))
+            if training:
+                result += self.xp.asnumpy(self.w) * self.noise
+            return result
+        else:
+            result = self.kernel.K(X, self.X).dot(self.w)
+            if training:
+                result += self.w * self.noise
+            return result
 
     def update(self, ps, noise):
         self.kernel.set_all_ps(ps)

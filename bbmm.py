@@ -46,6 +46,7 @@ except BaseException:
     gpu_available = False
 from .krylov import Krylov
 from .preconditioner import Preconditioner_Nystroem
+from . import kern
 import numpy.linalg as LA
 import scipy.linalg as SLA
 import time
@@ -305,17 +306,59 @@ class BBMM(object):
     def predict_train(self, vec):
         return self.mv_Knoise_numpy(vec)
 
-    def predict(self, X2, vec, training=False):
+    def save(self, path):
+        if self.GPU:
+            data = {
+                'kernel': self.kernel.to_dict(),
+                'X': cp.asnumpy(self.X[0]),
+                'Y': cp.asnumpy(self.Y),
+                'w': cp.asnumpy(self.w),
+                'noise': self.noise,
+            }
+        else:
+            data = {
+                'kernel': self.kernel.to_dict(),
+                'X': self.X,
+                'Y': self.Y,
+                'w': self.w,
+                'noise': self.noise,
+            }
+        np.savez(path, **data)
+
+    @classmethod
+    def from_dict(self, data, GPU):
+        kernel_dict = data['kernel'][()]
+        kernel = kern.get_kern_obj(kernel_dict)
+        if GPU:
+            nGPU = 1
+        else:
+            nGPU = 0
+        result = BBMM(kernel, nGPU=nGPU)
+        result.initialize(data['X'], data['noise'][()])
+        if GPU:
+            result.w = cp.asarray(data['w']).copy()
+        else:
+            result.w = data['w']
+        return result
+
+    @classmethod
+    def load(self, path, GPU):
+        data = dict(np.load(path, allow_pickle=True))
+        return self.from_dict(data, GPU)
+
+    def predict(self, X2, training=False):
         #TODO: make it compatible with multiout
         if (self.nout > 1) and (not training):
             assert False, "Fix bug here"
         if self.GPU:
-            result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(cp.asarray(vec))
+            result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(self.w)
+            if training:
+                result += self.w * self.noise
             result = cp.asnumpy(result)
         else:
-            result = self.kernel.K(X2, self.X).dot(vec)
-        if training:
-            result += vec * self.noise
+            result = self.kernel.K(X2, self.X).dot(self.w)
+            if training:
+                result += self.w * self.noise
         return result
 
     def set_preconditioner(self, N_init, indices=None, debug=False, nGPU=0, random_seed=0):
@@ -480,12 +523,13 @@ class BBMM(object):
         block_size: int.
         thres: scalar. Convergence threshold.
         '''
+        self.Y = Y.copy()
         if x0 is not None:
             return self.solve_iter(Y - self.mv_Knoise_numpy(x0), block_size=block_size, thres=thres, compute_gradient=compute_gradient, random_seed=random_seed, compute_loglikelihood=compute_loglikelihood, lanczos_n_iter=lanczos_n_iter, debug=debug) + x0
         if self.main_GPU:
             xp = cp
             cp.cuda.Device(0).use()
-            #Y = cp.asarray(Y)
+            self.Y = cp.asarray(self.Y)
         else:
             xp = np
         # M^{-1/2} b
@@ -564,6 +608,10 @@ class BBMM(object):
             self.logdets_samples = xp.array([get_tridiagonal_matrix_log(d, e)[0, 0] for d, e in zip(cp.asnumpy(self.d.T), cp.asnumpy(self.e.T))])
             self.logdet = xp.mean(self.logdets_samples) * len(Y)
             self.log_likelihood = -self.logdet / 2 - woodbury_vec_iter.T.dot(Y)[0, 0] / 2 - np.log(np.pi * 2) * len(Y) / 2
+        if self.GPU:
+            self.w = cp.asarray(woodbury_vec_iter).copy()
+        else:
+            self.w = woodbury_vec_iter
         return woodbury_vec_iter
 
     def solve_direct(self, Y):

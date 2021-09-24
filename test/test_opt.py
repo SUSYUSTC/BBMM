@@ -57,7 +57,7 @@ class Test(unittest.TestCase):
         bbmm.set_preconditioner(N_init, nGPU=0)
         woodbuery_vec_iter = bbmm.solve_iter(Y, thres=thres, block_size=bs, compute_gradient=True, random_seed=0, compute_loglikelihood=False, lanczos_n_iter=20, debug=False, max_iter=1000)
         self.assertTrue(bbmm.converged)
-        pred = bbmm.predict(X, woodbuery_vec_iter, training=True)
+        pred = bbmm.predict(X, training=True)
         err = np.max(np.abs(pred - Y))
         self.assertTrue(err < 1e-6)
 

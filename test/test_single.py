@@ -25,7 +25,7 @@ class Test(unittest.TestCase):
         bbmm.set_preconditioner(N_init, nGPU=0)
         woodbuery_vec_iter = bbmm.solve_iter(Y)
         self.assertTrue(bbmm.converged)
-        pred = bbmm.predict(X, woodbuery_vec_iter, training=True)
+        pred = bbmm.predict(X, training=True)
         err = np.max(np.abs(pred - Y))
         self.assertTrue(err < 1e-5)
 
