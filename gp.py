@@ -37,7 +37,7 @@ class GP(object):
         self.w = self.xp_solve_triangular(L, w_int, lower=True, trans=1)
         if grad:
             #logdet = self.xp.linalg.slogdet(K_noise)[1]
-            logdet = np.sum(np.log(np.diag(L)))*2
+            logdet = self.xp.sum(self.xp.log(self.xp.diag(L)))*2
             del K_noise
             Linv = self.xp_solve_triangular(L, self.xp.eye(self.N), lower=True, trans=0)
             del L
