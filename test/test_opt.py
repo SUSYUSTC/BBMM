@@ -1,4 +1,5 @@
 import BBMM
+from BBMM.regression.opt import Adam
 import numpy as np
 import sys
 import unittest
@@ -20,7 +21,7 @@ N_init = 500
 class Test(unittest.TestCase):
     def test(self):
         lr = 0.5
-        opt = BBMM.Adam(lengthscale, variance, noise, clamp_noise=1e-5, init_lr=lr)
+        opt = Adam(lengthscale, variance, noise, clamp_noise=1e-5, init_lr=lr)
         while True:
             kernel = BBMM.kern.RBF()
             kernel.set_all_ps([opt.variance, opt.lengthscale])

@@ -7,7 +7,7 @@ except BaseException:
     gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
-from . import kern
+from . import get_kern_obj
 
 
 def add(x, y):
@@ -108,7 +108,7 @@ class ProductKernel(Kernel):
 
     @classmethod
     def from_dict(self, data):
-        kern_list = [kern.get_kern_obj(kerndata) for kerndata in data['kern_list']]
+        kern_list = [get_kern_obj(kerndata) for kerndata in data['kern_list']]
         kernel = self(kern_list, dims=data['dims'])
         return kernel
 

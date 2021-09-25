@@ -6,7 +6,7 @@ except BaseException:
     gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
-from . import kern
+from . import get_kern_obj
 from .param import Param
 from . import param_transformation
 
@@ -155,7 +155,7 @@ class FullDerivative(GeneralDerivative):
         else:
             optfactor = False
         kern_dict = data['kern']
-        kernel = kern.get_kern_obj(kern_dict)
+        kernel = get_kern_obj(kern_dict)
         result = self(kernel, n, d, optfactor=optfactor)
         result.set_factor(factor)
         return result
@@ -224,6 +224,6 @@ class Derivative(GeneralDerivative):
         n = data['n']
         d = data['d']
         kern_dict = data['kern']
-        kernel = kern.get_kern_obj(kern_dict)
+        kernel = get_kern_obj(kern_dict)
         result = self(kernel, n, d)
         return result

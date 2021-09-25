@@ -46,7 +46,7 @@ except BaseException:
     gpu_available = False
 from .krylov import Krylov
 from .preconditioner import Preconditioner_Nystroem
-from . import kern
+from .. import kern
 import numpy.linalg as LA
 import scipy.linalg as SLA
 import time

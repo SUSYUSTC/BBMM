@@ -1,6 +1,6 @@
 from .kernel import Kernel
 from .cache import Cache
-from . import kern
+from . import get_kern_obj
 
 
 class Difference(Kernel):
@@ -62,7 +62,7 @@ class Difference(Kernel):
     def from_dict(self, data):
         d = data['d']
         kern_dict = data['kern']
-        kernel = kern.get_kern_obj(kern_dict)
+        kernel = get_kern_obj(kern_dict)
         result = self(kernel, d)
         return result
 

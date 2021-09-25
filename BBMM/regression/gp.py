@@ -1,8 +1,8 @@
 import numpy as np
-from . import kern
+from .. import kern
 import time
 import sys
-from . import param_transformation
+from ..kern import param_transformation
 
 
 class GP(object):
