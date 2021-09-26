@@ -21,9 +21,8 @@ class Test(unittest.TestCase):
         kernel.set_all_ps([variance, lengthscale])
         bbmm = BBMM.BBMM(kernel, nGPU=nGPU, file=None, verbose=False)
         bbmm.initialize(X, noise)
-        #bbmm.verbose = True
         bbmm.set_preconditioner(N_init, nGPU=0)
-        woodbuery_vec_iter = bbmm.solve_iter(Y)
+        bbmm.solve_iter(Y)
         self.assertTrue(bbmm.converged)
         pred = bbmm.predict(X, training=True)
         err = np.max(np.abs(pred - Y))
