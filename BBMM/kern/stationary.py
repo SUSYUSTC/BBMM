@@ -25,6 +25,7 @@ class Stationary(Kernel):
         self.ps = [self.variance, self.lengthscale]
         self.set_ps = [self.set_variance, self.set_lengthscale]
         self.transformations = [param_transformation.log, param_transformation.log]
+        self.nout = 1
         self.check()
 
     def set_variance(self, variance):

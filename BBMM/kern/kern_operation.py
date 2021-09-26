@@ -23,6 +23,8 @@ class ProductKernel(Kernel):
         self.name = 'kern_operation.ProductKernel'
         self.nk = len(kern_list)
         self.kern_list = kern_list
+        assert np.all(np.array([k.nout for k in kern_list]) == kern_list[0].nout)
+        self.nout = kern_list[0].nout
         self.nps = [len(k.ps) for k in self.kern_list]
         self.cumsum = np.concatenate([np.array([0]), np.cumsum(self.nps)])
         self.cache_K = {}

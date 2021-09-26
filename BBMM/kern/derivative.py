@@ -30,7 +30,6 @@ class GeneralDerivative(Kernel):
 
         self.transformations = self.kernel.transformations
         super().__init__()
-        self.check()
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
         raise NotImplementedError
@@ -64,6 +63,8 @@ class FullDerivative(GeneralDerivative):
             self.set_ps.append(self.set_factor)
             self.dK_dps.append(self.dK_dfactor)
             self.transformations.append(param_transformation.log)
+        self.nout = n + 1
+        self.check()
 
     def set_factor(self, factor):
         self.factor.value = factor
@@ -165,6 +166,8 @@ class Derivative(GeneralDerivative):
     def __init__(self, kernel, n, d):
         self.name = 'derivative.Derivative'
         super().__init__(kernel, n, d)
+        self.nout = n
+        self.check()
 
     def _fake_K(self, X, X2, d2K_dXdX2):
         if gpu_available:

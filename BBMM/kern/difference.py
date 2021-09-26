@@ -12,6 +12,7 @@ class Difference(Kernel):
         self.dim_K = slice(0, d)
         self.dim_diff = slice(d, d*2)
         self.kernel = kernel
+        self.nout = self.kernel.nout
         self.ps = self.kernel.ps
         self.set_ps = self.kernel.set_ps
         self.dK_dps = []

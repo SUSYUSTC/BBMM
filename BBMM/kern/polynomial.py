@@ -21,6 +21,7 @@ class Linear(Kernel):
         self.transform_ps = []
         self.inv_transform_ps = []
         self.d_transform_ps = []
+        self.nout = 1
         self.check()
 
     def clear_cache(self):

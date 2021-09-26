@@ -78,7 +78,7 @@ def get_tridiagonal_matrix_log(d, e):
 
 
 class BBMM(object):
-    def __init__(self, kernel, nGPU=0, file=None, verbose=True, nout=1):
+    def __init__(self, kernel, nGPU=0, file=None, verbose=True):
         '''
         A general BBMM stationary kernel.
         RBF, Matern32 and Matern52 are implemented as example.
@@ -103,14 +103,14 @@ class BBMM(object):
             self.cnp = np
         self.kernel = kernel
         self.kernel.set_cache_state(False)
-        self.nout = nout
 
     def initialize(self, X, noise, batch=4096):
         # batch=None: no batch, else, batch=min(N, batch)
         # initialize bbmm
 
+        self.X_CPU = X.copy()
         if not self.GPU:
-            self.X = np.array(X).copy()
+            self.X = self.X_CPU
         else:
             self.X = []
             for i in range(self.nGPU):
@@ -120,9 +120,9 @@ class BBMM(object):
         self.dtype = X.dtype
         self.N = len(X)
         self.batch = batch
-        self.N_out = self.N * self.nout
+        self.N_out = self.N * self.kernel.nout
         if self.batch is not None:
-            self.batch = min(self.batch // self.nout, self.N)
+            self.batch = min(self.batch // self.kernel.nout, self.N)
         self.noise = noise
 
         if self.batch is None:
@@ -131,10 +131,9 @@ class BBMM(object):
             self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.ps))]
         else:
             self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
-            #self.division_out = np.split(np.arange(self.N*self.nout), range(self.batch*self.nout, self.N*self.nout, self.batch*self.nout))
             self.division_out = []
             for i in range(len(self.division)):
-                self.division_out.append(np.concatenate([self.division[i] + j * self.N for j in range(self.nout)]))
+                self.division_out.append(np.concatenate([self.division[i] + j * self.N for j in range(self.kernel.nout)]))
             self.n_division = len(self.division)
 
         self.iter = 0
@@ -286,7 +285,7 @@ class BBMM(object):
 
     def _matrix_multiple(self, method, *vs):
         #TODO: make it compatible with multiout
-        if self.nout > 1:
+        if self.kernel.nout > 1:
             assert False, "Fix bug here"
         if gpu_available:
             xp = cp.get_array_module(vs[0])
@@ -348,7 +347,7 @@ class BBMM(object):
 
     def predict(self, X2, training=False):
         #TODO: make it compatible with multiout
-        if (self.nout > 1) and (not training):
+        if (self.kernel.nout > 1) and (not training):
             assert False, "Fix bug here"
         if self.GPU:
             result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(self.w)
@@ -391,19 +390,10 @@ class BBMM(object):
         else:
             init_indices = indices.copy()
         init_indices = np.sort(init_indices)
-        if self.GPU:
-            K11 = cp.asnumpy(self.kernel.K(self.X[0][init_indices]))
-            if self.verbose:
-                print("Constructing K21", file=self.file, flush=True)
-            K21 = np.zeros((self.N_out, len(K11)))
-            for i in range(len(self.division)):
-                d = self.division[i]
-                K21[self.division_out[i], :] = cp.asnumpy(self.kernel.K(self.X[0][d], self.X[0][init_indices]))
-        else:
-            K11 = self.kernel.K(self.X[init_indices], self.X[init_indices])
-            if self.verbose:
-                print("Constructing K21", file=self.file, flush=True)
-            K21 = self.kernel.K(self.X, self.X[init_indices])
+        K11 = self.kernel.K(self.X_CPU[init_indices])
+        if self.verbose:
+            print("Constructing K21", file=self.file, flush=True)
+        K21 = self.kernel.K(self.X_CPU, self.X_CPU[init_indices])
         I = np.eye(len(K11), dtype=self.dtype)
         if self.verbose:
             print("Running QR", file=self.file, flush=True)
@@ -613,20 +603,3 @@ class BBMM(object):
         else:
             self.w = woodbury_vec_iter
         return woodbury_vec_iter
-
-    def solve_direct(self, Y):
-        t1 = time.time()
-        if self.verbose:
-            print("Start direct solver", file=self.file, flush=True)
-        if self.GPU:
-            xp = cp
-            K = self.kernel.K(self.X, self.X)
-        else:
-            xp = np
-            K = self.kernel.K(self.X[0], self.X[0])
-        I = xp.eye(self.N, dtype=self.dtype)
-        woodbury_vec = xp.linalg.solve(K + I * self.noise, xp.array(Y))
-        t2 = time.time()
-        if self.verbose:
-            print("Direct solving done. Time", t2 - t1, file=self.file, flush=True)
-        return cp.asnumpy(woodbury_vec)
