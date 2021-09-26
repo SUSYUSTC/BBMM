@@ -38,8 +38,7 @@ class Test(unittest.TestCase):
         pred = bbmm.predict(X, training=True)
         # 1e-6
         err_pred = np.max(np.abs(pred - Y))
-        print(err_pred)
-        self.assertTrue(err_pred < 1e-6)
+        self.assertTrue(err_pred < 1e-5)
 
         try:
             random_vectors = bbmm.random_vectors.get()

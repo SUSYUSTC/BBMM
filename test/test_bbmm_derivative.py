@@ -33,13 +33,9 @@ class Test(unittest.TestCase):
         bbmm = BBMM.BBMM(kern, nGPU=0, verbose=False)
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(500, nGPU=0)
-        w_bbmm = bbmm.solve_iter(Y)
-
-        kern2 = BBMM.kern.FullDerivative(stationary_kernel, n, d)
-        gp = BBMM.GP(X, Y, kern2, noise)
-        gp.fit()
-        err = np.max(np.abs(gp.w - w_bbmm))
-        self.assertTrue(err < 1e-3)
+        bbmm.solve_iter(Y)
+        err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
+        self.assertTrue(err < 1e-5)
 
     def test_gpu(self):
         stationary_kernel = BBMM.kern.RBF()
@@ -49,13 +45,10 @@ class Test(unittest.TestCase):
         bbmm = BBMM.BBMM(kern, nGPU=1, verbose=False)
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(500, nGPU=0)
-        w_bbmm = bbmm.solve_iter(Y)
-
-        kern2 = BBMM.kern.FullDerivative(stationary_kernel, n, d)
-        gp = BBMM.GP(X, Y, kern2, noise)
-        gp.fit()
-        err = np.max(np.abs(gp.w - w_bbmm))
-        self.assertTrue(err < 1e-3)
+        bbmm.solve_iter(Y)
+        bbmm.predict(X) - Y
+        err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
+        self.assertTrue(err < 1e-5)
 
 
 if __name__ == '__main__':

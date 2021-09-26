@@ -60,7 +60,7 @@ class Test(unittest.TestCase):
         self.assertTrue(bbmm.converged)
         pred = bbmm.predict(X, training=True)
         err = np.max(np.abs(pred - Y))
-        self.assertTrue(err < 1e-6)
+        self.assertTrue(err < 1e-5)
 
 
 if __name__ == '__main__':

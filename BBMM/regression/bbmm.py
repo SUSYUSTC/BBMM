@@ -284,9 +284,6 @@ class BBMM(object):
             return self.mv_dK_dps(i, vec)
 
     def _matrix_multiple(self, method, *vs):
-        #TODO: make it compatible with multiout
-        if self.kernel.nout > 1:
-            assert False, "Fix bug here"
         if gpu_available:
             xp = cp.get_array_module(vs[0])
         else:
@@ -301,9 +298,6 @@ class BBMM(object):
 
     def mv_Knoise_numpy_multiple(self, *vs):
         return self._matrix_multiple(self.mv_Knoise_numpy, *vs)
-
-    def predict_train(self, vec):
-        return self.mv_Knoise_numpy(vec)
 
     def save(self, path):
         if self.GPU:
@@ -346,9 +340,6 @@ class BBMM(object):
         return self.from_dict(data, GPU)
 
     def predict(self, X2, training=False):
-        #TODO: make it compatible with multiout
-        if (self.kernel.nout > 1) and (not training):
-            assert False, "Fix bug here"
         if self.GPU:
             result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(self.w)
             if training:
