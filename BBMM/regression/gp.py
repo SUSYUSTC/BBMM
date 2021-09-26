@@ -123,17 +123,27 @@ class GP(object):
 
     def opt_callback(self, x):
         print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
+        if self.verbose:
+            original_x = self.transformations_group.inv(x)
+            print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
+            print(file=self.file, flush=True)
 
-    def optimize(self, messages=False, tol=1e-6):
+    def optimize(self, messages=False, verbose=False, tol=1e-6, noise_bound=0):
         import scipy
         import scipy.optimize
         if messages:
             callback = self.opt_callback
+            self.verbose = verbose
         else:
             callback = None
         begin = time.time()
         transform_ps = [self.kernel.transformations[i](self.kernel.ps[i].value) for i in range(len(self.kernel.ps))]
         transform_noise = np.log(self.noise)
+        bounds = [(-np.inf, np.inf) for i in transform_ps]
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            bounds.append([np.log(noise_bound), np.inf])
         self.result = scipy.optimize.minimize(self.objective, transform_ps + [transform_noise], jac=True, method='L-BFGS-B', callback=callback, tol=tol)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
