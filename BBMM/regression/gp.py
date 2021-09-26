@@ -81,7 +81,7 @@ class GP(object):
     def from_dict(self, data, GPU):
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
-        result = GP(data['X'], data['Y'], kernel, noise=data['noise'][()], GPU=GPU)
+        result = self(data['X'], data['Y'], kernel, noise=data['noise'][()], GPU=GPU)
         if GPU:
             result.w = result.xp.asarray(data['w'])
         else:

@@ -326,7 +326,7 @@ class BBMM(object):
             nGPU = 1
         else:
             nGPU = 0
-        result = BBMM(kernel, nGPU=nGPU)
+        result = self(kernel, nGPU=nGPU)
         result.initialize(data['X'], data['noise'][()])
         if GPU:
             result.w = cp.asarray(data['w']).copy()
