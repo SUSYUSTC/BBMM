@@ -26,6 +26,12 @@ class Difference(Kernel):
         self.kernel.set_cache_state(False)
         self.check()
 
+    def likelihood_reg(self, X, noises):
+        return super(self).likelihood_reg(X, noises)
+
+    def likelihood_reg_grad(self, X, noises):
+        return super(self).likelihood_reg_grad(X, noises)
+
     def _fake_K(self, X, X2, method):
         if X2 is None:
             X2 = X

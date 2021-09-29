@@ -1,9 +1,12 @@
-def get_kern(name):
-    return eval(name)
+from typing import cast, Any, Dict
+from .kernel import Kernel
+
+def get_kern(name: str) -> Kernel:
+    return cast(Kernel, eval(name))
 
 
-def get_kern_obj(data):
-    return eval(data['name']).from_dict(data)
+def get_kern_obj(data: Dict[str, Any]) -> Kernel:
+    return cast(Kernel, eval(data['name'])).from_dict(data)
 
 
 from . import stationary

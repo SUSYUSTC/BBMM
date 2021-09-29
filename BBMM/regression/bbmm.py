@@ -36,6 +36,7 @@ Structure:
     mv_Knoise_numpy(vec), mv_dK_dps_numpy(i, vec)
     _matrix_multiple(self, method, *vs), mv_Knoise_multiple(self, *vs), mv_Knoise_multiple(self, *vs)
 '''
+from typing import Any, Dict
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
@@ -47,6 +48,7 @@ except BaseException:
 from .krylov import Krylov
 from .preconditioner import Preconditioner_Nystroem
 from .. import kern
+from ..kern import Kernel
 import numpy.linalg as LA
 import scipy.linalg as SLA
 import time
@@ -78,7 +80,7 @@ def get_tridiagonal_matrix_log(d, e):
 
 
 class BBMM(object):
-    def __init__(self, kernel, nGPU=0, file=None, verbose=True):
+    def __init__(self, kernel: Kernel, nGPU: int=0, file=None, verbose: bool=True) -> None:
         '''
         A general BBMM stationary kernel.
         RBF, Matern32 and Matern52 are implemented as example.
@@ -104,13 +106,13 @@ class BBMM(object):
         self.kernel = kernel
         self.kernel.set_cache_state(False)
 
-    def initialize(self, X, noise, batch=4096):
+    def initialize(self, X: np.ndarray, noise: float, batch: int=4096) -> None:
         # batch=None: no batch, else, batch=min(N, batch)
         # initialize bbmm
 
         self.X_CPU = X.copy()
         if not self.GPU:
-            self.X = self.X_CPU
+            self.X: Any = self.X_CPU
         else:
             self.X = []
             for i in range(self.nGPU):
@@ -128,7 +130,7 @@ class BBMM(object):
         if self.batch is None:
             assert not self.GPU
             self.K_full = self.kernel.K(self.X, self.X)
-            self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.ps))]
+            self.dK_dps_full = [self.kernel.dK_dps[i](self.X, self.X) for i in range(len(self.kernel.ps))]
         else:
             self.division = np.split(np.arange(self.N), range(self.batch, self.N, self.batch))
             self.division_out = []
@@ -299,7 +301,7 @@ class BBMM(object):
     def mv_Knoise_numpy_multiple(self, *vs):
         return self._matrix_multiple(self.mv_Knoise_numpy, *vs)
 
-    def save(self, path):
+    def save(self, path: str) -> None:
         if self.GPU:
             data = {
                 'kernel': self.kernel.to_dict(),
@@ -319,7 +321,7 @@ class BBMM(object):
         np.savez(path, **data)
 
     @classmethod
-    def from_dict(self, data, GPU):
+    def from_dict(self, data: Dict[str, Any], GPU: bool) -> BBMM:
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
         if GPU:
@@ -335,11 +337,11 @@ class BBMM(object):
         return result
 
     @classmethod
-    def load(self, path, GPU):
+    def load(self, path: str, GPU: bool) -> BBMM:
         data = dict(np.load(path, allow_pickle=True))
         return self.from_dict(data, GPU)
 
-    def predict(self, X2, training=False):
+    def predict(self, X2: np.ndarray, training: bool=False) -> np.ndarray:
         if self.GPU:
             result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(self.w)
             if training:
@@ -351,7 +353,7 @@ class BBMM(object):
                 result += self.w * self.noise
         return result
 
-    def set_preconditioner(self, N_init, indices=None, debug=False, nGPU=0, random_seed=0):
+    def set_preconditioner(self, N_init: int, indices: np.ndarray=None, debug: bool=False, nGPU: int=0, random_seed: int=0) -> None:
         '''
         Construct a Nystroem preconditioner by M = K21 (K11 + \sigma^2 I)^{-1} K12 + \sigma^2 I
 
@@ -493,7 +495,7 @@ class BBMM(object):
                 self.GRAM_printed = True
             print("Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
 
-    def solve_iter(self, Y, x0=None, block_size=50, thres=1e-6, compute_gradient=False, random_seed=0, compute_loglikelihood=None, lanczos_n_iter=20, debug=False, max_iter=None):
+    def solve_iter(self, Y: np.ndarray, x0: np.ndarray=None, block_size: int=50, thres: float=1e-6, compute_gradient: bool=False, random_seed: int=0, compute_loglikelihood: bool=None, lanczos_n_iter: int=20, debug: bool=False, max_iter: int=None):
         '''
         Solve the preconditioned kernel linear system iteratively by block conjugate gradient
         Equation: M^{-1/2} A M^{-1/2} M^{1/2} v = M^{-1/2} y

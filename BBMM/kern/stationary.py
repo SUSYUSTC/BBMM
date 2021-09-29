@@ -1,3 +1,4 @@
+from typing import Any, List, Dict
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
@@ -13,7 +14,7 @@ from . import param_transformation
 
 
 class Stationary(Kernel):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.default_cache = {'g': 0}
         self.dK_dps = [self.dK_dv, self.dK_dl]
@@ -27,12 +28,16 @@ class Stationary(Kernel):
         self.transformations = [param_transformation.log, param_transformation.log]
         self.nout = 1
         self.check()
+        self.name: str
 
     def set_variance(self, variance):
         self.variance.value = variance
 
     def set_lengthscale(self, lengthscale):
         self.lengthscale.value = lengthscale
+
+    def likelihood_split(self, Nin: int) -> List[np.ndarray]:
+        return super().likelihood_split(Nin)
 
     def K_of_r(self, r):
         raise NotImplementedError
@@ -65,14 +70,14 @@ class Stationary(Kernel):
         N1 = len(X1)
         N2 = len(X2)
         # (X1-X2)^2 = X1^2 + X2^2 - 2*X1*X2
-        distance = xp.empty((N1, N2))
         X11 = xp.square(X1).sum(1)
         X22 = xp.square(X2).sum(1)
         distance = X11[:, None] + X22[None, :]
         distance -= X1.dot(X2.T) * 2
         # Add a small number to avoid calculating square root of a negative number
         distance += 1e-12
-        return xp.sqrt(distance) / self.lengthscale.value
+        result = xp.sqrt(distance) / self.lengthscale.value
+        return result
 
     @Cache('no')
     def K(self, X1, X2=None):
@@ -214,25 +219,25 @@ class Stationary(Kernel):
     def d3K_dldXdX_0(self, dX):
         return - self.d2K_dXdX_0(dX) * 2 / self.lengthscale.value
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         self.cache_data = {}
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         data = {
             'lengthscale': self.lengthscale.value,
             'variance': self.variance.value,
-            'name': self.name
+            'name': self.name,
         }
         return data
 
     @classmethod
-    def from_dict(self, data):
+    def from_dict(self, data: Dict[str, Any]) -> Kernel:
         kernel = self()
         kernel.set_lengthscale(data['lengthscale'])
         kernel.set_variance(data['variance'])
         return kernel
 
-    def set_cache_state(self, state):
+    def set_cache_state(self, state: bool) -> None:
         self.cache_state = state
 
 

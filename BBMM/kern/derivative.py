@@ -1,3 +1,4 @@
+from typing import Any, List, Dict
 import numpy as np
 try:
     import cupy as cp
@@ -12,8 +13,8 @@ from . import param_transformation
 
 
 class GeneralDerivative(Kernel):
-    def __init__(self, kernel, n, d):
-        self.default_cache = {}
+    def __init__(self, kernel: Kernel, n: int, d: int) -> None:
+        self.default_cache: Any = {}
         self.n = n
         self.d = d
         self.input_dim = (n + 1) * d
@@ -43,17 +44,18 @@ class GeneralDerivative(Kernel):
     def Kdiag(self, X):
         raise NotImplementedError
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         self.cache_data = {}
         self.kernel.clear_cache()
 
-    def set_cache_state(self, state):
+    def set_cache_state(self, state: bool) -> None:
         self.cache_state = state
         self.kernel.set_cache_state(state)
 
 
 class FullDerivative(GeneralDerivative):
-    def __init__(self, kernel, n, d, optfactor=False):
+    def __init__(self, kernel: Kernel, n: int, d: int, optfactor: bool=False, likelihood_split_type: str='same') -> None:
+        assert likelihood_split_type in ['same', 'order', 'full']
         self.name = 'derivative.FullDerivative'
         super().__init__(kernel, n, d)
         self.factor = Param('factor', 1.0)
@@ -64,10 +66,20 @@ class FullDerivative(GeneralDerivative):
             self.dK_dps.append(self.dK_dfactor)
             self.transformations.append(param_transformation.log)
         self.nout = n + 1
+        self.likelihood_split_type = likelihood_split_type
         self.check()
 
-    def set_factor(self, factor):
+    def set_factor(self, factor: float) -> None:
         self.factor.value = factor
+
+    def likelihood_split(self, Nin: int) -> List[np.ndarray]:
+        #TODO: use split of subkernels
+        if self.likelihood_split_type == 'same':
+            return [np.arange(Nin * self.nout)]
+        elif self.likelihood_split_type == 'order':
+            return [np.arange(Nin), np.arange(Nin, Nin * self.nout)]
+        else:
+            return [np.arange(Nin * i, Nin * (i + 1)) for i in range(self.nout)]
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2, d_factor=False):
         if d_factor:
@@ -132,7 +144,7 @@ class FullDerivative(GeneralDerivative):
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.dK_dl_0(X_K)] + [self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         data = {
             'name': self.name,
             'n': self.n,
@@ -144,7 +156,7 @@ class FullDerivative(GeneralDerivative):
         return data
 
     @classmethod
-    def from_dict(self, data):
+    def from_dict(self, data: Dict[str, Any]) -> Kernel:
         n = data['n']
         d = data['d']
         if 'factor' in data:
@@ -163,7 +175,7 @@ class FullDerivative(GeneralDerivative):
 
 
 class Derivative(GeneralDerivative):
-    def __init__(self, kernel, n, d):
+    def __init__(self, kernel: Kernel, n: int, d: int):
         self.name = 'derivative.Derivative'
         super().__init__(kernel, n, d)
         self.nout = n
@@ -213,7 +225,7 @@ class Derivative(GeneralDerivative):
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         data = {
             'name': self.name,
             'n': self.n,
@@ -223,7 +235,7 @@ class Derivative(GeneralDerivative):
         return data
 
     @classmethod
-    def from_dict(self, data):
+    def from_dict(self, data: Dict[str, Any]) -> Kernel:
         n = data['n']
         d = data['d']
         kern_dict = data['kern']

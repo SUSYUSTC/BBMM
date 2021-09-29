@@ -1,3 +1,4 @@
+from typing import Any, Dict
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
@@ -11,17 +12,15 @@ from .cache import Cache
 
 
 class Linear(Kernel):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.name = 'polynomial.Linear'
         self.default_cache = {'g': 0}
         self.dK_dps = []
         self.ps = []
         self.set_ps = []
-        self.transform_ps = []
-        self.inv_transform_ps = []
-        self.d_transform_ps = []
         self.nout = 1
+        self.transformations = []
         self.check()
 
     def clear_cache(self):
@@ -34,14 +33,14 @@ class Linear(Kernel):
         else:
             return X.dot(X2.T)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         data = {
             'name': self.name
         }
         return data
 
     @classmethod
-    def from_dict(self, data):
+    def from_dict(self, data: Dict[str, Any]) -> Kernel:
         kernel = self()
         return kernel
 
