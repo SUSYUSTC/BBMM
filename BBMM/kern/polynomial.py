@@ -1,4 +1,4 @@
-from typing import Any, Dict
+import typing as tp
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
@@ -33,14 +33,14 @@ class Linear(Kernel):
         else:
             return X.dot(X2.T)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> tp.Dict[str, tp.Any]:
         data = {
             'name': self.name
         }
         return data
 
     @classmethod
-    def from_dict(self, data: Dict[str, Any]) -> Kernel:
+    def from_dict(self, data: tp.Dict[str, tp.Any]) -> Kernel:
         kernel = self()
         return kernel
 

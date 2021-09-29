@@ -1,17 +1,22 @@
-from typing import Any, Dict, List, Tuple
+import typing as tp
 import numpy as np
 from .. import kern
 from ..kern import Kernel
 import time
 import sys
 from ..kern import param_transformation
+from .noise import Noise
 
 
 class GP(object):
-    def __init__(self, X: np.ndarray, Y: np.ndarray, kernel: Kernel, noise: float, GPU: bool=False, file=None):
+    def __init__(self, X: np.ndarray, Y: np.ndarray, kernel: Kernel, noise: tp.Union[float, tp.List[float]], GPU: bool=False, file=None):
+        self.Nin = len(X)
         self.kernel = kernel
+        self.Nout = self.Nin * self.kernel.nout
+        assert len(Y) == self.Nout
         self.transformations_group = param_transformation.Group(kernel.transformations + [param_transformation.log])
-        self.noise = noise
+        self.noise = Noise(noise)
+        self.likelihood_split = self.kernel.likelihood_split(self.Nin)
         self.GPU = GPU
         if GPU:
             import cupy as cp
@@ -25,8 +30,6 @@ class GP(object):
             self.xp_solve_triangular = scipy.linalg.solve_triangular
         self.X = self.xp.array(X).copy()
         self.Y = self.xp.array(Y).copy()
-        self.Nin = len(X)
-        self.Nout = len(Y)
         if file is None:
             self.file = sys.__stdout__
         else:
@@ -34,7 +37,7 @@ class GP(object):
 
     def fit(self, grad: bool=False) -> None:
         self.grad = grad
-        K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache) + self.xp.eye(self.Nout) * self.noise
+        K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache) + self.get_reg(self.Nin)
         L = self.xp.linalg.cholesky(K_noise)
         w_int = self.xp_solve_triangular(L, self.Y, lower=True, trans=0)
         self.w = self.xp_solve_triangular(L, w_int, lower=True, trans=1)
@@ -81,7 +84,7 @@ class GP(object):
         np.savez(path, **data)
 
     @classmethod
-    def from_dict(self, data: Dict[str, Any], GPU: bool) -> GP:
+    def from_dict(self, data: tp.Dict[str, tp.Any], GPU: bool) -> GP:
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
         result = self(data['X'], data['Y'], kernel, noise=data['noise'][()], GPU=GPU)
@@ -115,7 +118,7 @@ class GP(object):
         self.kernel.clear_cache()
         self.params = np.array(ps + [noise])
 
-    def objective(self, transform_ps_noise: List[float]) -> Tuple[float, np.ndarray]:
+    def objective(self, transform_ps_noise: tp.List[float]) -> tp.Tuple[float, np.ndarray]:
         ps_noise = self.transformations_group.inv(transform_ps_noise)
         d_transform_ps_noise = self.transformations_group.d(ps_noise)
         self.update(ps_noise[:-1], ps_noise[-1])

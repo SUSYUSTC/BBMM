@@ -36,7 +36,7 @@ Structure:
     mv_Knoise_numpy(vec), mv_dK_dps_numpy(i, vec)
     _matrix_multiple(self, method, *vs), mv_Knoise_multiple(self, *vs), mv_Knoise_multiple(self, *vs)
 '''
-from typing import Any, Dict
+import typing as tp
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
@@ -52,6 +52,7 @@ from ..kern import Kernel
 import numpy.linalg as LA
 import scipy.linalg as SLA
 import time
+import sys
 up_line = '\033[F'
 clear_line = '\033[2K\033[1G'
 
@@ -80,7 +81,7 @@ def get_tridiagonal_matrix_log(d, e):
 
 
 class BBMM(object):
-    def __init__(self, kernel: Kernel, nGPU: int=0, file=None, verbose: bool=True) -> None:
+    def __init__(self, kernel: Kernel, nGPU: int=0, file: tp.IO=sys.stdout, verbose: bool=True) -> None:
         '''
         A general BBMM stationary kernel.
         RBF, Matern32 and Matern52 are implemented as example.
@@ -112,7 +113,7 @@ class BBMM(object):
 
         self.X_CPU = X.copy()
         if not self.GPU:
-            self.X: Any = self.X_CPU
+            self.X: tp.Any = self.X_CPU
         else:
             self.X = []
             for i in range(self.nGPU):
@@ -126,6 +127,7 @@ class BBMM(object):
         if self.batch is not None:
             self.batch = min(self.batch // self.kernel.nout, self.N)
         self.noise = noise
+        assert len(self.kernel.likelihood_split(self.N)) == 1
 
         if self.batch is None:
             assert not self.GPU
@@ -321,7 +323,7 @@ class BBMM(object):
         np.savez(path, **data)
 
     @classmethod
-    def from_dict(self, data: Dict[str, Any], GPU: bool) -> BBMM:
+    def from_dict(self, data: tp.Dict[str, tp.Any], GPU: bool) -> BBMM:
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
         if GPU:

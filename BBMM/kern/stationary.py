@@ -1,4 +1,4 @@
-from typing import Any, List, Dict
+import typing as tp
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
@@ -36,8 +36,8 @@ class Stationary(Kernel):
     def set_lengthscale(self, lengthscale):
         self.lengthscale.value = lengthscale
 
-    def likelihood_split(self, Nin: int) -> List[np.ndarray]:
-        return super().likelihood_split(Nin)
+    def split_likelihood(self, Nin: int) -> tp.List[np.ndarray]:
+        return super().split_likelihood(Nin)
 
     def K_of_r(self, r):
         raise NotImplementedError
@@ -222,7 +222,7 @@ class Stationary(Kernel):
     def clear_cache(self) -> None:
         self.cache_data = {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> tp.Dict[str, tp.Any]:
         data = {
             'lengthscale': self.lengthscale.value,
             'variance': self.variance.value,
@@ -231,7 +231,7 @@ class Stationary(Kernel):
         return data
 
     @classmethod
-    def from_dict(self, data: Dict[str, Any]) -> Kernel:
+    def from_dict(self, data: tp.Dict[str, tp.Any]) -> Kernel:
         kernel = self()
         kernel.set_lengthscale(data['lengthscale'])
         kernel.set_variance(data['variance'])

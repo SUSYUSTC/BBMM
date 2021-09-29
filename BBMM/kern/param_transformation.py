@@ -1,4 +1,4 @@
-from typing import List, Callable
+import typing as tp
 import numpy as np
 class Transformation(object):
     def __init__(self) -> None:
@@ -46,18 +46,18 @@ log = Log()
 
 
 class Group(object):
-    def __init__(self, group: List[Transformation]) -> None:
+    def __init__(self, group: tp.List[Transformation]) -> None:
         self.group = group
         self.n = len(group)
 
-    def __call__(self, x: List[float]) -> List[float]:
+    def __call__(self, x: tp.List[float]) -> tp.List[float]:
         assert len(x) == self.n
         return [self.group[i](x[i]) for i in range(self.n)]
 
-    def d(self, x: List[float]) -> List[float]:
+    def d(self, x: tp.List[float]) -> tp.List[float]:
         assert len(x) == self.n
         return [self.group[i].d(x[i]) for i in range(self.n)]
 
-    def inv(self, x: List[float]) -> List[float]:
+    def inv(self, x: tp.List[float]) -> tp.List[float]:
         assert len(x) == self.n
         return [self.group[i].inv(x[i]) for i in range(self.n)]

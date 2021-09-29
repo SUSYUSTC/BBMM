@@ -1,12 +1,12 @@
-from typing import cast, Any, Dict
+import typing as tp
 from .kernel import Kernel
 
 def get_kern(name: str) -> Kernel:
-    return cast(Kernel, eval(name))
+    return tp.cast(Kernel, eval(name))
 
 
-def get_kern_obj(data: Dict[str, Any]) -> Kernel:
-    return cast(Kernel, eval(data['name'])).from_dict(data)
+def get_kern_obj(data: tp.Dict[str, tp.Any]) -> Kernel:
+    return tp.cast(Kernel, eval(data['name'])).from_dict(data)
 
 
 from . import stationary
