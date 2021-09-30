@@ -127,7 +127,6 @@ class BBMM(object):
         if self.batch is not None:
             self.batch = min(self.batch // self.kernel.nout, self.N)
         self.noise = noise
-        assert len(self.kernel.likelihood_split(self.N)) == 1
 
         if self.batch is None:
             assert not self.GPU
@@ -323,7 +322,7 @@ class BBMM(object):
         np.savez(path, **data)
 
     @classmethod
-    def from_dict(self, data: tp.Dict[str, tp.Any], GPU: bool) -> BBMM:
+    def from_dict(self, data: tp.Dict[str, tp.Any], GPU: bool) -> 'BBMM':
         kernel_dict = data['kernel'][()]
         kernel = kern.get_kern_obj(kernel_dict)
         if GPU:
@@ -339,7 +338,7 @@ class BBMM(object):
         return result
 
     @classmethod
-    def load(self, path: str, GPU: bool) -> BBMM:
+    def load(self, path: str, GPU: bool) -> 'BBMM':
         data = dict(np.load(path, allow_pickle=True))
         return self.from_dict(data, GPU)
 

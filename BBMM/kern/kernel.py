@@ -52,6 +52,5 @@ class Kernel(object):
     def to_dict(self) -> tp.Dict[str, tp.Any]:
         raise NotImplementedError
 
-    def from_dict(self, data: tp.Dict[str, tp.Any]) -> Kernel:
+    def from_dict(self, data: tp.Dict[str, tp.Any]) -> 'Kernel':
         raise NotImplementedError
-

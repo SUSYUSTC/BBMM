@@ -14,7 +14,7 @@ from . import param_transformation
 
 class GeneralDerivative(Kernel):
     orders: tp.List[tp.List[int]]
-    def __init__(self, kernel: Kernel, n: int, d: int, split_likelihood_type: str) -> None:
+    def __init__(self, kernel: Kernel, n: int, d: int, likelihood_split_type: str) -> None:
         self.default_cache: tp.Any = {}
         self.n = n
         self.d = d
@@ -30,25 +30,25 @@ class GeneralDerivative(Kernel):
                 return self.dK_dp(i, X, X2, **kwargs)
             self.dK_dps.append(func)
 
-        assert split_likelihood_type in ['same', 'order', 'full']
-        self.split_likelihood_type = split_likelihood_type
+        assert likelihood_split_type in ['same', 'order', 'full']
+        self.likelihood_split_type = likelihood_split_type
         self.transformations = self.kernel.transformations
         super().__init__()
 
     def split_likelihood(self, Nin: int) -> tp.List[np.ndarray]:
         splits = self.kernel.split_likelihood(Nin)
         results: tp.List[np.ndarray] = []
-        if self.split_likelihood_type == 'same':
+        if self.likelihood_split_type == 'same':
             for s in splits:
-                results.append(np.concatenate([s + self.nout * i for i in range(self.nout)]))
-        elif self.split_likelihood_type == 'order':
+                results.append(np.concatenate([s + Nin * i for i in range(self.nout)]))
+        elif self.likelihood_split_type == 'order':
             for s in splits:
                 for o in self.orders:
-                    results.append(np.concatenate([s + self.nout * i for i in o]))
+                    results.append(np.concatenate([s + Nin * i for i in o]))
         else:
             for s in splits:
                 for i in range(self.nout):
-                    results.append(s + self.nout * i)
+                    results.append(s + Nin * i)
         return results
 
     def _fake_K(self, X, X2, K, dK_dX, dK_dX2, d2K_dXdX2):
@@ -73,9 +73,9 @@ class GeneralDerivative(Kernel):
 
 
 class FullDerivative(GeneralDerivative):
-    def __init__(self, kernel: Kernel, n: int, d: int, optfactor: bool=False, split_likelihood_type: str='same') -> None:
+    def __init__(self, kernel: Kernel, n: int, d: int, optfactor: bool=False, likelihood_split_type: str='same') -> None:
         self.name = 'derivative.FullDerivative'
-        super().__init__(kernel, n, d, split_likelihood_type)
+        super().__init__(kernel, n, d, likelihood_split_type)
         self.factor = Param('factor', 1.0)
         self.optfactor = optfactor
         if optfactor:
@@ -184,9 +184,9 @@ class FullDerivative(GeneralDerivative):
 
 
 class Derivative(GeneralDerivative):
-    def __init__(self, kernel: Kernel, n: int, d: int, split_likelihood_type: str):
+    def __init__(self, kernel: Kernel, n: int, d: int, likelihood_split_type: str = 'same'):
         self.name = 'derivative.Derivative'
-        super().__init__(kernel, n, d, split_likelihood_type)
+        super().__init__(kernel, n, d, likelihood_split_type)
         self.nout = n
         self.orders = [list(range(self.nout))]
         self.check()
