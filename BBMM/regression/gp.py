@@ -5,15 +5,16 @@ from ..kern import Kernel, get_kern_obj, param_transformation
 import time
 import sys
 from .noise import Noise
+from .. import utils
 
 
 class GP(object):
-    def __init__(self, X: np.ndarray, Y: np.ndarray, kernel: Kernel, noise: tp.Union[float, tp.Iterable[float]], GPU: bool=False, file=None):
+    def __init__(self, X: np.ndarray, Y: np.ndarray, kernel: Kernel, noise: tp.Union[utils.general_float, tp.Iterable[utils.general_float]], GPU: bool=False, file=None):
         self.Nin = len(X)
         self.kernel = kernel
         self.Nout = self.Nin * self.kernel.nout
         assert len(Y) == self.Nout
-        self.noise = Noise(noise)
+        self.noise = Noise(noise, self.kernel.n_likelihood_splits)
         self.likelihood_splits = self.kernel.split_likelihood(self.Nin)
         self.nks = len(self.kernel.ps)
         self.nns = len(self.noise.values)
@@ -115,12 +116,12 @@ class GP(object):
 
     def update(self, ps, noises: tp.List[float]) -> None:
         self.kernel.set_all_ps(ps)
-        self.noise = Noise(noises)
+        self.noise.values = noises
         self.kernel.clear_cache()
         self.params = np.array(ps + noises)
 
-    def objective(self, transform_ps_noise: tp.List[float]) -> tp.Tuple[float, np.ndarray]:
-        ps_noise = self.transformations_group.inv(transform_ps_noise)
+    def objective(self, transform_ps_noise: np.ndarray) -> tp.Tuple[float, np.ndarray]:
+        ps_noise = self.transformations_group.inv(transform_ps_noise.tolist())
         d_transform_ps_noise = self.transformations_group.d(ps_noise)
         self.update(ps_noise[:self.nks], ps_noise[-self.nns:])
         self.fit(grad=True)
@@ -129,13 +130,13 @@ class GP(object):
         return result
 
     def opt_callback(self, x):
-        print('ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
+        print('-ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
         if self.verbose:
             original_x = self.transformations_group.inv(x)
             print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
             print(file=self.file, flush=True)
 
-    def optimize(self, messages=False, verbose=False, tol=1e-6, noise_bound: tp.Union[float, tp.List[float]]=0.0) -> None:
+    def optimize(self, messages=False, verbose=False, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]]=1e-8) -> None:
         import scipy
         import scipy.optimize
         if messages:
@@ -150,12 +151,12 @@ class GP(object):
         import warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            if isinstance(noise_bound, Iterable):
-                noist_bound_list = noise_bound
-            else:
-                noise_bound_list = [noise_bound]
+            noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
             for b in noise_bound_list:
                 bounds.append((float(np.log(b)), np.inf))
-        self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol)
+        self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
+        if not self.result.success:
+            import warnings
+            warnings.warn('Warning: GP optimization not converged')

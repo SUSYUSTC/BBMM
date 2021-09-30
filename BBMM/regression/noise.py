@@ -2,13 +2,13 @@ import typing as tp
 from collections.abc import Iterable
 import numpy as np
 from ..kern import Kernel
+from .. import utils
+
+general_float = tp.Union[float,np.float]
 class Noise(object):
     values: tp.List[float]
-    def __init__(self, value: tp.Union[float, tp.Iterable[float]]) -> None:
-        if isinstance(value, Iterable):
-            self.values = list(value)
-        else:
-            self.values = [float(value)]
+    def __init__(self, value: tp.Union[general_float, tp.Iterable[general_float]], n: int) -> None:
+        self.values = list(map(lambda x: float(x), utils.make_desired_size(value, n)))
 
     def get_diag_reg(self, split: tp.List[np.ndarray]) -> np.ndarray:
         assert len(split) == len(self.values)

@@ -90,7 +90,6 @@ class BBMM(object):
         Parameters
         ----------
         X: N*f array.
-        noise: scalar.
         batch: Batch size of block kernel construction in order to save memory.
         nGPU: Number of used GPUs.
         file: A file to write the print information. Default to be standand console output.
@@ -110,7 +109,6 @@ class BBMM(object):
     def initialize(self, X: np.ndarray, noise: float, batch: int=4096) -> None:
         # batch=None: no batch, else, batch=min(N, batch)
         # initialize bbmm
-
         self.X_CPU = X.copy()
         if not self.GPU:
             self.X: tp.Any = self.X_CPU

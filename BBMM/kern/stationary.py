@@ -11,6 +11,7 @@ from .kernel import Kernel
 from .cache import Cache
 from .param import Param
 from . import param_transformation
+from .. import utils
 
 
 class Stationary(Kernel):
@@ -30,11 +31,11 @@ class Stationary(Kernel):
         self.check()
         self.name: str
 
-    def set_variance(self, variance):
-        self.variance.value = variance
+    def set_variance(self, variance: utils.general_float):
+        self.variance.value = float(variance)
 
-    def set_lengthscale(self, lengthscale):
-        self.lengthscale.value = lengthscale
+    def set_lengthscale(self, lengthscale: utils.general_float):
+        self.lengthscale.value = float(lengthscale)
 
     def split_likelihood(self, Nin: int) -> tp.List[np.ndarray]:
         return super().split_likelihood(Nin)

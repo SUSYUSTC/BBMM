@@ -7,22 +7,26 @@ try:
     gpu_available = True
 except BaseException:
     gpu_available = False
+from .. import utils
 
 
 class Kernel(object):
+    cache_data: tp.Dict[str, tp.Any]
+    default_cache: tp.Dict[str, tp.Any]
+    ps: tp.List[param.Param]
+    set_ps: tp.List[tp.Callable[[utils.general_float], None]]
+    dK_dps: tp.List[tp.Callable]
+    d2K_dpsdX: tp.List[tp.Callable]
+    d2K_dpsdX2: tp.List[tp.Callable]
+    d3K_dpsdXdX2: tp.List[tp.Callable]
+    nout: int
+    transformations: tp.List[param_transformation.Transformation]
+    n_likelihood_splits: int
     def __init__(self) -> None:
         self.cache_state: bool = True
         self.cache: tp.Dict[str, tp.Any] = {}
-        self.cache_data: tp.Dict[str, tp.Any]
-        self.default_cache: tp.Dict[str, tp.Any]
-        self.ps: tp.List[param.Param]
-        self.set_ps: tp.List[tp.Callable[[float], None]]
-        self.dK_dps: tp.List[tp.Callable]
-        self.d2K_dpsdX: tp.List[tp.Callable]
-        self.d2K_dpsdX2: tp.List[tp.Callable]
-        self.d3K_dpsdXdX2: tp.List[tp.Callable]
-        self.nout: int
-        self.transformations: tp.List[param_transformation.Transformation]
+        if not hasattr(self, 'n_likelihood_splits'):
+            self.n_likelihood_splits = 1
 
     def check(self):
         assert hasattr(self, 'default_cache')
@@ -32,7 +36,7 @@ class Kernel(object):
         assert hasattr(self, 'transformations')
         assert hasattr(self, 'nout')
 
-    def set_all_ps(self, params: tp.List[float]) -> None:
+    def set_all_ps(self, params: tp.List[utils.general_float]) -> None:
         assert len(params) == len(self.ps)
         for i in range(len(self.ps)):
             self.set_ps[i](params[i])
