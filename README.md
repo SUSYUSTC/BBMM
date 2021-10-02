@@ -7,47 +7,41 @@
 * cupy ```pip install cupy ``` 
 
 ## How to use ##
-Train a Full GP model and then save
+Create data and kernel
 ```
 import numpy as np
 import BBMM
-# create data and kernel
 X = np.random.random((100, 10))
 Y = np.sum(np.sin(X), axis=1)[:, None]
 noise = 1e-4
 k = BBMM.kern.RBF()
 k.set_lengthscale(1.0)
 k.set_variance(10.0)
-# train
+```
+
+Train a full GP model and then save
+```
 gp = BBMM.GP(X, Y, k, noise, GPU=False)
 gp.optimize(messages=False)
 # predict
-Y_pred = bbmm.pred(X)
+Y_pred = gp.predict(X)
 # save
 gp.save("model.npz")
 ```
 
 Train a BBMM model and then save
 ```
-import numpy as np
-import BBMM
-# create data and kernel
-X = np.random.random((100, 10))
-Y = np.sum(np.sin(X), axis=1)[:, None]
-noise = 1e-4
-k = BBMM.kern.RBF()
-k.set_lengthscale(1.0)
-k.set_variance(10.0)
-# train
 bbmm = BBMM.BBMM(k, nGPU=1)
 bbmm.initialize(X, noise)
 bbmm.set_preconditioner(50, nGPU=0)
 bbmm.solve_iter(Y)
 # predict
-Y_pred = bbmm.pred(X)
+Y_pred = bbmm.predict(X)
 # save
 bbmm.save("model.npz")
 ```
+
+The kernel calculations are cached by default. If you want to play with them by yourself you may want `YOUR_KERNEL.clear_cache` or disable the cacheing by `YOUR_KERNEL.set_cache_state(False)`.
 
 ## References ##
 1. Wang, Ke Alexander, Geoff Pleiss, Jacob R. Gardner, Stephen Tyree, Kilian Q. Weinberger, and Andrew Gordon Wilson. “Exact Gaussian processes on a million data points.” arXiv preprint arXiv:1903.08114 (2019). Accepted by NeurIPS 2019 [[Link]](https://arxiv.org/abs/1903.08114)
