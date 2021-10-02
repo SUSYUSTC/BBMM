@@ -24,7 +24,6 @@ class Stationary(Kernel):
         self.transformations = [param_transformation.log, param_transformation.log]
         self.nout = 1
         self.check()
-        self.name: str
 
     def set_variance(self, variance: utils.general_float):
         self.variance.value = float(variance)

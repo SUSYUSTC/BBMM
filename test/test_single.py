@@ -16,35 +16,36 @@ lr = 0.5
 
 
 class Test(unittest.TestCase):
-    def _run(self, nGPU, kern):
+    def _run(self, nGPU, kern, it):
         kernel = kern()
         kernel.set_all_ps([variance, lengthscale])
         bbmm = BBMM.BBMM(kernel, nGPU=nGPU, file=None, verbose=False)
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(N_init, nGPU=0)
         bbmm.solve_iter(Y)
+        self.assertTrue(bbmm.iter == it)
         self.assertTrue(bbmm.converged)
         pred = bbmm.predict(X, training=True)
         err = np.max(np.abs(pred - Y))
         self.assertTrue(err < 1e-5)
 
     def test_CPU_RBF(self):
-        self._run(0, BBMM.kern.RBF)
+        self._run(0, BBMM.kern.RBF, 7)
 
     def test_GPU_RBF(self):
-        self._run(1, BBMM.kern.RBF)
+        self._run(1, BBMM.kern.RBF, 7)
 
     def test_CPU_Matern32(self):
-        self._run(0, BBMM.kern.Matern32)
+        self._run(0, BBMM.kern.Matern32, 11)
 
     def test_GPU_Matern32(self):
-        self._run(1, BBMM.kern.Matern32)
+        self._run(1, BBMM.kern.Matern32, 11)
 
     def test_CPU_Matern52(self):
-        self._run(0, BBMM.kern.Matern52)
+        self._run(0, BBMM.kern.Matern52, 9)
 
     def test_GPU_Matern52(self):
-        self._run(1, BBMM.kern.Matern52)
+        self._run(1, BBMM.kern.Matern52, 9)
 
 
 if __name__ == '__main__':

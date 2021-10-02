@@ -6,6 +6,7 @@ from .. import utils
 
 
 class Kernel(object):
+    name: str
     cache_data: tp.Dict[str, tp.Any]
     default_cache: tp.Dict[str, tp.Any]
     ps: tp.List[param.Param]
