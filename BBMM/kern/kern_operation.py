@@ -1,14 +1,10 @@
 import typing as tp
 import functools
 import numpy as np
-try:
-    import cupy as cp
-    gpu_available = True
-except BaseException:
-    gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
 from . import get_kern_obj
+from .. import utils
 
 type_dims = tp.List[tp.Union[slice, np.ndarray]]
 
@@ -74,10 +70,7 @@ class ProductKernel(Kernel):
 
     @Cache('g')
     def K(self, X, X2=None):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         Ks = [self.cached_K(i, X, X2) for i in range(self.nk)]
         if not self.cache_state:
             self.clear_cache()
@@ -85,10 +78,7 @@ class ProductKernel(Kernel):
 
     @Cache('g')
     def dK_dp(self, i, X, X2=None):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         kern_index, pos_index = self.get_pos(i)
         Ks = [self.cached_K(j, X, X2) for j in range(self.nk)]
         Ks[kern_index] = self.cached_dK_dp(kern_index, pos_index, X, X2)

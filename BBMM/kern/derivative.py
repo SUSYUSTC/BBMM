@@ -1,10 +1,5 @@
 import typing as tp
 import numpy as np
-try:
-    import cupy as cp
-    gpu_available = True
-except BaseException:
-    gpu_available = False
 from .kernel import Kernel
 from .cache import Cache
 from . import get_kern_obj
@@ -101,10 +96,8 @@ class FullDerivative(GeneralDerivative):
             c0 = 1
             c1 = self.factor.value
             c2 = self.factor.value ** 2
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+
+        xp = utils.get_array_module(X)
         if X2 is None:
             X2 = X
         N = len(X)
@@ -126,6 +119,9 @@ class FullDerivative(GeneralDerivative):
 
     @Cache('g')
     def K(self, X, X2=None):
+        '''
+        X, X2: (N, d*(n+1))
+        '''
         return self._fake_K(X, X2, self.kernel.K, self.kernel.dK_dX, self.kernel.dK_dX2, self.kernel.d2K_dXdX2)
 
     @Cache('g')
@@ -138,19 +134,13 @@ class FullDerivative(GeneralDerivative):
 
     @Cache('g')
     def Kdiag(self, X):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         X_K = X[:, self.dim_K]
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.K_0(X_K)] + [self.kernel.d2K_dXdX_0(dX) for dX in X_grad])
 
     def dK_dldiag(self, X):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         X_K = X[:, self.dim_K]
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.dK_dl_0(X_K)] + [self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
@@ -194,10 +184,7 @@ class Derivative(GeneralDerivative):
         self.check()
 
     def _fake_K(self, X, X2, d2K_dXdX2):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         if X2 is None:
             X2 = X
         N = len(X)
@@ -214,6 +201,9 @@ class Derivative(GeneralDerivative):
 
     @Cache('g')
     def K(self, X, X2=None):
+        '''
+        X, X2: (N, d)
+        '''
         return self._fake_K(X, X2, self.kernel.d2K_dXdX2)
 
     @Cache('g')
@@ -222,18 +212,12 @@ class Derivative(GeneralDerivative):
 
     @Cache('g')
     def Kdiag(self, X):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.d2K_dXdX_0(dX) for dX in X_grad])
 
     def dK_dldiag(self, X):
-        if gpu_available:
-            xp = cp.get_array_module(X)
-        else:
-            xp = np
+        xp = utils.get_array_module(X)
         X_grad = [X[:, dim] for dim in self.dims_grad]
         return xp.concatenate([self.kernel.d3K_dldXdX_0(dX) for dX in X_grad])
 

@@ -2,11 +2,6 @@ from . import param
 from . import param_transformation
 import typing as tp
 import numpy as np
-try:
-    import cupy as cp
-    gpu_available = True
-except BaseException:
-    gpu_available = False
 from .. import utils
 
 

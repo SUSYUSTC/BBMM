@@ -1,12 +1,7 @@
 import typing as tp
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-import numpy as np
-try:
-    import cupy as cp
-    gpu_available = True
-except BaseException:
-    gpu_available = False
+#import numpy as np
 from .kernel import Kernel
 from .cache import Cache
 

@@ -53,7 +53,7 @@ class Test(unittest.TestCase):
         tr_dK_dl = np.mean(sampled_tr_dK_dl)
         # 1e-5
         err_tr_l = np.abs((bbmm.tr_dK_dps[1] - tr_dK_dl) / tr_dK_dl)
-        self.assertTrue(err_tr_l < 2e-8)
+        self.assertTrue(err_tr_l < 1e-7)
 
         # 1e-4
         err_grad_variance = np.abs((bbmm.gradients[0] - gpy_model.gradient[0]) / gpy_model.gradient[0])

@@ -30,11 +30,12 @@ class Test(unittest.TestCase):
         stationary_kernel.set_lengthscale(lengthscale)
         stationary_kernel.set_variance(variance)
         kern = BBMM.kern.FullDerivative(stationary_kernel, n, d)
-        bbmm = BBMM.BBMM(kern, nGPU=0, verbose=False)
+        bbmm = BBMM.BBMM(kern, nGPU=0, verbose=True)
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(500, nGPU=0)
-        bbmm.solve_iter(Y)
+        bbmm.solve_iter(Y, thres=1e-8)
         err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
+        print(err)
         self.assertTrue(err < 1e-5)
 
     def test_gpu(self):
@@ -42,12 +43,13 @@ class Test(unittest.TestCase):
         stationary_kernel.set_lengthscale(lengthscale)
         stationary_kernel.set_variance(variance)
         kern = BBMM.kern.FullDerivative(stationary_kernel, n, d)
-        bbmm = BBMM.BBMM(kern, nGPU=1, verbose=False)
+        bbmm = BBMM.BBMM(kern, nGPU=1, verbose=True)
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(500, nGPU=0)
-        bbmm.solve_iter(Y)
+        bbmm.solve_iter(Y, thres=1e-8)
         bbmm.predict(X) - Y
         err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
+        print(err)
         self.assertTrue(err < 1e-5)
 
 

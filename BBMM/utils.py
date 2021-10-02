@@ -15,3 +15,15 @@ def make_desired_size(value: tp.Union[T, tp.List[T]], n: int) -> tp.List[T]:
     assert len(result) == n
     return result
 
+try:
+    import cupy as cp
+    gpu_available = True
+except BaseException:
+    gpu_available = False
+
+
+def get_array_module(x):
+    if gpu_available:
+        return cp.get_array_module(x)
+    else:
+        return np
