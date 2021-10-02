@@ -152,6 +152,7 @@ class FullDerivative(GeneralDerivative):
             'd': self.d,
             'optfactor': self.optfactor,
             'factor': self.factor.value,
+            'likelihood_split_type': self.likelihood_split_type,
             'kern': self.kernel.to_dict(),
         }
         return data
@@ -168,9 +169,13 @@ class FullDerivative(GeneralDerivative):
             optfactor = data['optfactor']
         else:
             optfactor = False
+        if 'likelihood_split_type' in data:
+            likelihood_split_type = data['likelihood_split_type']
+        else:
+            likelihood_split_type = 'same'
         kern_dict = data['kern']
         kernel = get_kern_obj(kern_dict)
-        result = self(kernel, n, d, optfactor=optfactor)
+        result = self(kernel, n, d, optfactor=optfactor, likelihood_split_type=likelihood_split_type)
         result.set_factor(factor)
         return result
 
@@ -226,6 +231,7 @@ class Derivative(GeneralDerivative):
             'name': self.name,
             'n': self.n,
             'd': self.d,
+            'likelihood_split_type': self.likelihood_split_type,
             'kern': self.kernel.to_dict()
         }
         return data
@@ -234,7 +240,11 @@ class Derivative(GeneralDerivative):
     def from_dict(self, data: tp.Dict[str, tp.Any]) -> Kernel:
         n = data['n']
         d = data['d']
+        if 'likelihood_split_type' in data:
+            likelihood_split_type = data['likelihood_split_type']
+        else:
+            likelihood_split_type = 'same'
         kern_dict = data['kern']
         kernel = get_kern_obj(kern_dict)
-        result = self(kernel, n, d)
+        result = self(kernel, n, d, likelihood_split_type)
         return result

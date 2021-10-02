@@ -54,3 +54,6 @@ class Kernel(object):
 
     def from_dict(self, data: tp.Dict[str, tp.Any]) -> 'Kernel':
         raise NotImplementedError
+
+    def copy(self) -> 'Kernel':
+        return self.from_dict(self.to_dict())
