@@ -34,6 +34,7 @@ class Test(unittest.TestCase):
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(500, nGPU=0)
         bbmm.solve_iter(Y)
+        self.assertTrue(bbmm.iter <= 5)
         err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
         self.assertTrue(err < 1e-5)
 
@@ -46,7 +47,7 @@ class Test(unittest.TestCase):
         bbmm.initialize(X, noise)
         bbmm.set_preconditioner(500, nGPU=0)
         bbmm.solve_iter(Y)
-        bbmm.predict(X) - Y
+        self.assertTrue(bbmm.iter <= 5)
         err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
         self.assertTrue(err < 1e-5)
 

@@ -10,6 +10,7 @@ except BaseException:
 
 
 class Kernel(object):
+    name: str
     def __init__(self) -> None:
         self.cache_state: bool = True
         self.cache: tp.Dict[str, tp.Any] = {}
