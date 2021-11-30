@@ -43,12 +43,11 @@ class GP(object):
         diag_reg = self.noise.get_diag_reg(self.likelihood_splits)
         K_noise[self.xp.arange(self.Nout), self.xp.arange(self.Nout)] += self.xp.array(diag_reg)
         L = self.xp.linalg.cholesky(K_noise)
+        del K_noise
         w_int = self.xp_solve_triangular(L, self.Y, lower=True, trans=0)
         self.w = self.xp_solve_triangular(L, w_int, lower=True, trans=1)
         if grad:
-            #logdet = self.xp.linalg.slogdet(K_noise)[1]
             logdet = self.xp.sum(self.xp.log(self.xp.diag(L))) * 2
-            del K_noise
             Linv = self.xp_solve_triangular(L, self.xp.eye(self.Nout), lower=True, trans=0)
             del L
             K_noise_inv = Linv.T.dot(Linv)
