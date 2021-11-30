@@ -9,7 +9,7 @@ from .. import utils
 
 
 class GP(object):
-    def __init__(self, X: np.ndarray, Y: np.ndarray, kernel: Kernel, noise: tp.Union[utils.general_float, tp.Iterable[utils.general_float]], GPU: bool=False, file=None):
+    def __init__(self, X: np.ndarray, Y: np.ndarray, kernel: Kernel, noise: tp.Union[utils.general_float, tp.Iterable[utils.general_float]], GPU: bool = False, file=None):
         self.Nin = len(X)
         self.kernel = kernel
         self.Nout = self.Nin * self.kernel.nout
@@ -37,15 +37,17 @@ class GP(object):
         else:
             self.file = file
 
-    def fit(self, grad: bool=False) -> None:
+    def fit(self, grad: bool = False) -> None:
         self.grad = grad
-        K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache) + self.xp.diag(self.noise.get_diag_reg(self.likelihood_splits))
+        K_noise = self.kernel.K(self.X, cache=self.kernel.default_cache)
+        diag_reg = self.noise.get_diag_reg(self.likelihood_splits)
+        K_noise[self.xp.arange(self.Nout), self.xp.arange(self.Nout)] += self.xp.array(diag_reg)
         L = self.xp.linalg.cholesky(K_noise)
         w_int = self.xp_solve_triangular(L, self.Y, lower=True, trans=0)
         self.w = self.xp_solve_triangular(L, w_int, lower=True, trans=1)
         if grad:
             #logdet = self.xp.linalg.slogdet(K_noise)[1]
-            logdet = self.xp.sum(self.xp.log(self.xp.diag(L)))*2
+            logdet = self.xp.sum(self.xp.log(self.xp.diag(L))) * 2
             del K_noise
             Linv = self.xp_solve_triangular(L, self.xp.eye(self.Nout), lower=True, trans=0)
             del L
@@ -101,7 +103,7 @@ class GP(object):
         data = dict(np.load(path, allow_pickle=True))
         return self.from_dict(data, GPU)
 
-    def predict(self, X: np.ndarray, training: bool=False) -> np.ndarray:
+    def predict(self, X: np.ndarray, training: bool = False) -> np.ndarray:
         self.kernel.clear_cache()
         if self.GPU:
             result = self.xp.asnumpy(self.kernel.K(self.xp.asarray(X), self.X).dot(self.w))
@@ -136,7 +138,7 @@ class GP(object):
             print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
             print(file=self.file, flush=True)
 
-    def optimize(self, messages=False, verbose=False, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]]=1e-8) -> None:
+    def optimize(self, messages=False, verbose=False, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-8) -> None:
         import scipy
         import scipy.optimize
         if messages:
