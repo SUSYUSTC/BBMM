@@ -149,19 +149,20 @@ class GP(object):
         begin = time.time()
         ps_noise = list(map(lambda p: p.value, self.kernel.ps)) + self.noise.values
         transform_ps_noise = self.transformations_group(ps_noise)
-        bounds: tp.List[tp.Tuple[float, float]] = [(-np.inf, np.inf) for i in range(self.nks)]
+        noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
         import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
-            for b in noise_bound_list:
-                bounds.append((float(np.log(b)), np.inf))
-        try:
-            self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
-        except np.linalg.LinAlgError:
-            noise_bound_list = [item * 10 for item in noise_bound_list]
-            print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list)
-            self.optimize(messages=messages, verbose=verbose, tol=tol, noise_bound=noise_bound_list)
+        while True:
+            try:
+                bounds: tp.List[tp.Tuple[float, float]] = [(-np.inf, np.inf) for i in range(self.nks)]
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    for b in noise_bound_list:
+                        bounds.append((float(np.log(b)), np.inf))
+                self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
+                break
+            except np.linalg.LinAlgError:
+                noise_bound_list = [item * 10 for item in noise_bound_list]
+                print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
         if not self.result.success:
