@@ -137,7 +137,7 @@ class GP(object):
             print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
             print(file=self.file, flush=True)
 
-    def optimize(self, messages=False, verbose=False, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-8) -> None:
+    def optimize(self, messages=False, verbose=True, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-8) -> None:
         import scipy
         import scipy.optimize
         if messages:
