@@ -25,6 +25,7 @@ class GP(object):
             self.xp = cp
             import cupyx
             import cupyx.scipy.linalg
+            cupyx.seterr(linalg='raise')
             self.xp_solve_triangular = cupyx.scipy.linalg.solve_triangular
         else:
             import scipy
@@ -155,7 +156,12 @@ class GP(object):
             noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
             for b in noise_bound_list:
                 bounds.append((float(np.log(b)), np.inf))
-        self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
+        try:
+            self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
+        except np.linalg.LinAlgError:
+            noise_bound_list = [item * 10 for item in noise_bound_list]
+            print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list)
+            self.optimize(messages=messages, verbose=verbose, tol=tol, noise_bound=noise_bound_list)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
         if not self.result.success:
