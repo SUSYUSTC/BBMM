@@ -35,9 +35,8 @@ class Test(unittest.TestCase):
         err_K = np.max(np.abs(gpy_kernel.K_of_r(gpy_kernel._scaled_dist(X)) - bbmm.kernel.K_of_r(bbmm.kernel.r(X))))
         self.assertTrue(err_K < 1e-10)
 
-        pred = bbmm.predict(X, training=True)
         # 1e-6
-        err_pred = np.max(np.abs(pred - Y))
+        err_pred = np.max(np.abs(bbmm.get_residual()))
         self.assertTrue(err_pred < 1e-5)
 
         try:

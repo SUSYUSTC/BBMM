@@ -43,10 +43,10 @@ class Test(unittest.TestCase):
         bbmm.solve_iter(Y)
         bbmm.save("model_BBMM")
         bbmm_load = BBMM.BBMM.load("model_BBMM.npz", GPU)
-        err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
-        err_load = np.max(np.abs(bbmm_load.predict(X, training=True) - Y))
-        self.assertTrue(err < 1e-5)
-        self.assertTrue(err_load < 1e-5)
+        pred = bbmm.predict(X)
+        pred_load = bbmm_load.predict(X)
+        err = np.max(np.abs(pred - pred_load))
+        self.assertTrue(err < 1e-8)
         os.remove("model_BBMM.npz")
 
     def test_CPU_GP(self):

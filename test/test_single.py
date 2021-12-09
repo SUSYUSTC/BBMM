@@ -25,8 +25,7 @@ class Test(unittest.TestCase):
         bbmm.solve_iter(Y)
         self.assertTrue(bbmm.iter == it)
         self.assertTrue(bbmm.converged)
-        pred = bbmm.predict(X, training=True)
-        err = np.max(np.abs(pred - Y))
+        err = np.max(np.abs(bbmm.get_residual()))
         self.assertTrue(err < 1e-5)
 
     def test_CPU_RBF(self):

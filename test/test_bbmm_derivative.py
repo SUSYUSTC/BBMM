@@ -35,7 +35,7 @@ class Test(unittest.TestCase):
         bbmm.set_preconditioner(500, nGPU=0)
         bbmm.solve_iter(Y, thres=1e-8)
         self.assertTrue(bbmm.iter <= 5)
-        err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
+        err = np.max(np.abs(bbmm.get_residual()))
         self.assertTrue(err < 1e-5)
 
     def test_gpu(self):
@@ -48,7 +48,7 @@ class Test(unittest.TestCase):
         bbmm.set_preconditioner(500, nGPU=0)
         bbmm.solve_iter(Y, thres=1e-8)
         self.assertTrue(bbmm.iter <= 5)
-        err = np.max(np.abs(bbmm.predict(X, training=True) - Y))
+        err = np.max(np.abs(bbmm.get_residual()))
         self.assertTrue(err < 1e-5)
 
 

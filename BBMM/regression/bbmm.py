@@ -287,21 +287,23 @@ class BBMM(object):
         data = dict(np.load(path, allow_pickle=True))
         return self.from_dict(data, GPU)
 
-    def predict(self, X2: np.ndarray, training: bool = False) -> np.ndarray:
-        if self.w.ndim == 2:
-            axis: tp.Any = (slice(None), None)
+    def get_residual(self) -> np.ndarray:
+        if self.GPU:
+            Y = cp.asarray(self.Y)
         else:
-            axis = (slice(None), )
+            Y = self.Y
+        residual = self.mv_Knoise(self.w) - Y
+        if self.GPU:
+            return cp.asnumpy(residual)
+        else:
+            return residual
 
+    def predict(self, X2: np.ndarray) -> np.ndarray:
         if self.GPU:
             result = self.kernel.K(cp.asarray(X2), self.X[0]).dot(self.w)
-            if training:
-                result += self.w * cp.asarray(self.noise.get_diag_reg(self.likelihood_splits)[axis])
             result = cp.asnumpy(result)
         else:
             result = self.kernel.K(X2, self.X).dot(self.w)
-            if training:
-                result += self.w * self.noise.get_diag_reg(self.likelihood_splits)[axis]
         return result
 
     def set_preconditioner(self, N_init: int, indices: np.ndarray = None, debug: bool = False, nGPU: int = 0, random_seed: int = 0) -> None:
