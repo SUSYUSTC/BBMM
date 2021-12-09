@@ -131,6 +131,18 @@ class GP(object):
         result = (-self.ll, -self.transform_gradient)
         return result
 
+    def get_numerical_gradient(self, transform_ps_noise: np.ndarray, delta: float) -> np.ndarray:
+        n_grad = []
+        for i in range(len(transform_ps_noise)):
+            transform_ps_noise_p = transform_ps_noise.copy()
+            transform_ps_noise_p[i] += delta
+            obj_p, _ = self.objective(transform_ps_noise_p)
+            transform_ps_noise_n = transform_ps_noise.copy()
+            transform_ps_noise_n[i] -= delta
+            obj_n, _ = self.objective(transform_ps_noise_n)
+            n_grad.append((obj_p-obj_n)/(delta*2))
+        return np.array(n_grad)
+
     def opt_callback(self, x):
         print('-ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
         if self.verbose:
@@ -163,6 +175,10 @@ class GP(object):
             except np.linalg.LinAlgError:
                 noise_bound_list = [item * 10 for item in noise_bound_list]
                 print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list)
+        _, grad = self.objective(self.result.x)
+        n_grad = self.get_numerical_gradient(self.result.x, 0.001)
+        print("Analytical gradient:", grad, file=self.file, flush=True)
+        print("Numerical gradient:", n_grad, file=self.file, flush=True)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
         if not self.result.success:
