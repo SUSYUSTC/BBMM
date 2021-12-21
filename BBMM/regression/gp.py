@@ -159,13 +159,13 @@ class GP(object):
         else:
             callback = None
         begin = time.time()
-        ps_noise = list(map(lambda p: p.value, self.kernel.ps)) + self.noise.values
-        transform_ps_noise = self.transformations_group(ps_noise)
         noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
         import warnings
         n_try = 1
         while True:
             try:
+                ps_noise = list(map(lambda p: p.value, self.kernel.ps)) + self.noise.values
+                transform_ps_noise = self.transformations_group(ps_noise)
                 bounds: tp.List[tp.Tuple[float, float]] = [(-np.inf, np.inf) for i in range(self.nks)]
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -174,11 +174,11 @@ class GP(object):
                 self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
                 if self.result.success or (n_try >= 3):
                     break
-                print("Optimization not successful, restarting")
+                print("Optimization not successful, restarting", file=self.file, flush=True)
                 n_try += 1
             except np.linalg.LinAlgError:
                 noise_bound_list = [item * 10 for item in noise_bound_list]
-                print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list)
+                print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list, file=self.file, flush=True)
         #_, grad = self.objective(self.result.x)
         #n_grad = self.get_numerical_gradient(self.result.x, 1e-4)
         #print("Analytical gradient:", grad, file=self.file, flush=True)
