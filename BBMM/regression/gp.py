@@ -171,10 +171,13 @@ class GP(object):
                     warnings.simplefilter("ignore")
                     for b in noise_bound_list:
                         bounds.append((float(np.log(b)), np.inf))
-                self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds)
+                self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds, options={'maxls': 100})
                 if self.result.success or (n_try >= 3):
                     break
                 print("Optimization not successful, restarting", file=self.file, flush=True)
+                print("current x", self.result.x, file=self.file, flush=True)
+                print("current grad", self.result.jac, file=self.file, flush=True)
+                print("current p", -self.result.hess_inv.dot(self.result.jac), file=self.file, flush=True)
                 n_try += 1
             except np.linalg.LinAlgError:
                 noise_bound_list = [item * 10 for item in noise_bound_list]
