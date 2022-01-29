@@ -116,7 +116,7 @@ class GP(object):
                 result += self.w * self.noise.get_diag_reg(self.likelihood_splits)[:, None]
             return result
 
-    def update(self, ps, noises: tp.List[float]) -> None:
+    def update(self, ps: tp.List[utils.general_float], noises: tp.List[float]) -> None:
         self.kernel.set_all_ps(ps)
         self.noise.values = noises
         self.kernel.clear_cache()
@@ -149,6 +149,8 @@ class GP(object):
             original_x = self.transformations_group.inv(x)
             print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
             print(file=self.file, flush=True)
+        self.saved_ps = list(map(lambda p: p.value, self.kernel.ps))
+        self.saved_noises = self.noise.values
 
     def optimize(self, messages=False, verbose=True, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-8) -> None:
         import scipy
@@ -182,6 +184,7 @@ class GP(object):
             except np.linalg.LinAlgError:
                 noise_bound_list = [item * 10 for item in noise_bound_list]
                 print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list, file=self.file, flush=True)
+                self.update(self.saved_ps, self.saved_noises)
         #_, grad = self.objective(self.result.x)
         #n_grad = self.get_numerical_gradient(self.result.x, 1e-4)
         #print("Analytical gradient:", grad, file=self.file, flush=True)
