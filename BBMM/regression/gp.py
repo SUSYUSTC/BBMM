@@ -151,8 +151,18 @@ class GP(object):
             print(file=self.file, flush=True)
         self.saved_ps = list(map(lambda p: p.value, self.kernel.ps))
         self.saved_noises = self.noise.values
+        update = False
+        if not hasattr(self, 'current_best_ll'):
+            update = True
+        else:
+            if self.ll > self.current_best_ll:
+                update = True
+        if update:
+            self.current_best_ll = self.ll
+            self.current_best_ps = self.saved_ps
+            self.current_best_noises = self.saved_noises
 
-    def optimize(self, messages=False, verbose=True, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-8) -> None:
+    def optimize(self, messages=False, verbose=True, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-10) -> None:
         import scipy
         import scipy.optimize
         if messages:
@@ -174,7 +184,7 @@ class GP(object):
                     for b in noise_bound_list:
                         bounds.append((float(np.log(b)), np.inf))
                 self.result = scipy.optimize.minimize(self.objective, transform_ps_noise, jac=True, method='L-BFGS-B', callback=callback, tol=tol, bounds=bounds, options={'maxls': 100})
-                if self.result.success or (n_try >= 3):
+                if self.result.success or (n_try >= 12):
                     break
                 print("Optimization not successful, restarting", file=self.file, flush=True)
                 print("current x", self.result.x, file=self.file, flush=True)
@@ -182,15 +192,14 @@ class GP(object):
                 print("current p", -self.result.hess_inv.dot(self.result.jac), file=self.file, flush=True)
                 n_try += 1
             except np.linalg.LinAlgError:
-                noise_bound_list = [item * 10 for item in noise_bound_list]
+                noise_bound_list = [item * 2 for item in noise_bound_list]
                 print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list, file=self.file, flush=True)
                 self.update(self.saved_ps, self.saved_noises)
-        #_, grad = self.objective(self.result.x)
-        #n_grad = self.get_numerical_gradient(self.result.x, 1e-4)
-        #print("Analytical gradient:", grad, file=self.file, flush=True)
-        #print("Numerical gradient:", n_grad, file=self.file, flush=True)
+
+        if self.ll < self.current_best_ll:
+            self.update(self.current_best_ps, self.current_best_noises)
+            self.fit(grad=True)
+            self.result = None
+            print('Optimization failed, taking the best history value, -ll =', -self.ll)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
-        if not self.result.success:
-            import warnings
-            warnings.warn('Warning: GP optimization not converged')
