@@ -144,11 +144,12 @@ class GP(object):
         return np.array(n_grad)
 
     def opt_callback(self, x):
-        print('-ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
-        if self.verbose:
-            original_x = self.transformations_group.inv(x)
-            print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
-            print(file=self.file, flush=True)
+        if self.messages:
+            print('-ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
+            if self.verbose:
+                original_x = self.transformations_group.inv(x)
+                print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
+                print(file=self.file, flush=True)
         self.saved_ps = list(map(lambda p: p.value, self.kernel.ps))
         self.saved_noises = self.noise.values
         update = False
@@ -165,11 +166,9 @@ class GP(object):
     def optimize(self, messages=False, verbose=True, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-10) -> None:
         import scipy
         import scipy.optimize
-        if messages:
-            callback: tp.Union[tp.Callable, None] = self.opt_callback
-            self.verbose = verbose
-        else:
-            callback = None
+        self.messages = messages
+        self.verbose = verbose
+        callback: tp.Callable = self.opt_callback
         begin = time.time()
         noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
         import warnings
