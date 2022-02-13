@@ -27,3 +27,10 @@ def get_array_module(x):
         return cp.get_array_module(x)
     else:
         return np
+
+def print_dict(d: tp.Dict[tp.Any, tp.Any], level=1):
+    for key in d:
+        if isinstance(d[key], dict):
+            print_dict(d[key], level=level+1)
+        else:
+            print(' '*level*4, key, d[key])

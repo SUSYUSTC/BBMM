@@ -102,6 +102,8 @@ class BBMM(object):
             assert utils.gpu_available
         self.kernel = kernel
         self.kernel.set_cache_state(False)
+        print('kernel info')
+        print(utils.print_dict(self.kernel.to_dict()), file=self.file, flush=True)
 
     def initialize(self, X: np.ndarray, noise: tp.Union[utils.general_float, tp.List[utils.general_float]], batch: int = 4096) -> None:
         # batch=None: no batch, else, batch=min(N, batch)
@@ -123,6 +125,7 @@ class BBMM(object):
             self.batch = min(self.batch // self.kernel.nout, self.Nin)
         self.noise = Noise(noise, self.kernel.n_likelihood_splits)
         self.likelihood_splits = self.kernel.split_likelihood(self.Nin)
+        print('noise: ', self.noise.values, file=self.file, flush=True)
 
         if self.batch is None:
             assert not self.GPU
