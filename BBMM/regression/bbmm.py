@@ -102,8 +102,8 @@ class BBMM(object):
             assert utils.gpu_available
         self.kernel = kernel
         self.kernel.set_cache_state(False)
-        print('kernel info')
-        print(utils.print_dict(self.kernel.to_dict()), file=self.file, flush=True)
+        print('kernel info', file=self.file, flush=True)
+        print(utils.print_dict(self.kernel.to_dict(), file=self.file, flush=True))
 
     def initialize(self, X: np.ndarray, noise: tp.Union[utils.general_float, tp.List[utils.general_float]], batch: int = 4096) -> None:
         # batch=None: no batch, else, batch=min(N, batch)

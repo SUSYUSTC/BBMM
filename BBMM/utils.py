@@ -28,9 +28,9 @@ def get_array_module(x):
     else:
         return np
 
-def print_dict(d: tp.Dict[tp.Any, tp.Any], level=1):
+def print_dict(d: tp.Dict[tp.Any, tp.Any], level=1, **printoptions):
     for key in d:
         if isinstance(d[key], dict):
-            print_dict(d[key], level=level+1)
+            print_dict(d[key], level=level+1, **printoptions)
         else:
-            print(' '*level*4, key, d[key])
+            print(' '*level*4, key, d[key], **printoptions)
