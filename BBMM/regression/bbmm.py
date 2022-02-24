@@ -350,7 +350,8 @@ class BBMM(object):
         if self.verbose:
             print("Running QR", file=self.file, flush=True)
         # K21 = Q R
-        Q, R = LA.qr(K21 / np.sqrt(diag_reg[:, None]))
+        K21 = K21 / np.sqrt(diag_reg[:, None])
+        Q, R = SLA.qr(K21, overwrite_a=True, mode='economic')
         if not debug:
             del K21
         # M = Q R (K11 + \sigma^2 I)^{-1} R^T Q^t
