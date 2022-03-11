@@ -124,6 +124,9 @@ class GP(object):
 
     def objective(self, transform_ps_noise: np.ndarray) -> tp.Tuple[float, np.ndarray]:
         ps_noise = self.transformations_group.inv(transform_ps_noise.tolist())
+        if self.verbose:
+            print('x:' + ' %e' * len(ps_noise) % tuple(ps_noise), file=self.file, flush=True)
+            print(file=self.file, flush=True)
         d_transform_ps_noise = self.transformations_group.d(ps_noise)
         self.update(ps_noise[:self.nks], ps_noise[-self.nns:])
         self.fit(grad=True)
@@ -146,10 +149,6 @@ class GP(object):
     def opt_callback(self, x):
         if self.messages:
             print('-ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
-            if self.verbose:
-                original_x = self.transformations_group.inv(x)
-                print('x:' + ' %e' * len(original_x) % tuple(original_x), file=self.file, flush=True)
-                print(file=self.file, flush=True)
         self.saved_ps = list(map(lambda p: p.value, self.kernel.ps))
         self.saved_noises = self.noise.values
         update = False
@@ -199,6 +198,6 @@ class GP(object):
             self.update(self.current_best_ps, self.current_best_noises)
             self.fit(grad=True)
             self.result = None
-            print('Optimization failed, taking the best history value, -ll =', -self.ll)
+            print('Optimization failed, taking the best history value, -ll =', -self.ll, file=self.file, flush=True)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
