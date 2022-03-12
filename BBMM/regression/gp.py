@@ -193,10 +193,10 @@ class GP(object):
                 print('Cholesky decomposition failed. Try to use a higher noise bound', noise_bound_list, file=self.file, flush=True)
                 self.update(self.saved_ps, self.saved_noises)
 
+        self.success = self.result.success
         if self.ll < self.current_best_ll:
             self.update(self.current_best_ps, self.current_best_noises)
             self.fit(grad=True)
-            self.result = None
             print('Optimization failed, taking the best history value, -ll =', -self.ll, file=self.file, flush=True)
         end = time.time()
         print('time', end - begin, file=self.file, flush=True)
