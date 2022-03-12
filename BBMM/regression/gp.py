@@ -124,9 +124,8 @@ class GP(object):
 
     def objective(self, transform_ps_noise: np.ndarray) -> tp.Tuple[float, np.ndarray]:
         ps_noise = self.transformations_group.inv(transform_ps_noise.tolist())
-        if self.verbose:
+        if self.messages:
             print('x:' + ' %e' * len(ps_noise) % tuple(ps_noise), file=self.file, flush=True)
-            print(file=self.file, flush=True)
         d_transform_ps_noise = self.transformations_group.d(ps_noise)
         self.update(ps_noise[:self.nks], ps_noise[-self.nns:])
         self.fit(grad=True)
@@ -149,6 +148,7 @@ class GP(object):
     def opt_callback(self, x):
         if self.messages:
             print('-ll', np.format_float_scientific(-self.ll, precision=6), 'gradient', np.linalg.norm(self.transform_gradient), file=self.file, flush=True)
+            print(file=self.file, flush=True)
         self.saved_ps = list(map(lambda p: p.value, self.kernel.ps))
         self.saved_noises = self.noise.values
         update = False
@@ -162,11 +162,10 @@ class GP(object):
             self.current_best_ps = self.saved_ps
             self.current_best_noises = self.saved_noises
 
-    def optimize(self, messages=False, verbose=True, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-10) -> None:
+    def optimize(self, messages=False, tol=1e-6, noise_bound: tp.Union[utils.general_float, tp.List[utils.general_float]] = 1e-10) -> None:
         import scipy
         import scipy.optimize
         self.messages = messages
-        self.verbose = verbose
         callback: tp.Callable = self.opt_callback
         begin = time.time()
         noise_bound_list = utils.make_desired_size(noise_bound, self.kernel.n_likelihood_splits)
