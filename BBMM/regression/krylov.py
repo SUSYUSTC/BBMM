@@ -66,7 +66,8 @@ class Krylov(object):
 
     def step_bcg(self):
         # self.Ap: N*k
-        cp.cuda.Stream.null.synchronize()
+        if gpu_available:
+            cp.cuda.Stream.null.synchronize()
         t1 = time.time()
         self.denominator = self.xp.linalg.inv(self.p.T.dot(self.Ap))
         #self.oldalpha = self.xp.linalg.inv(self.p.T.dot(self.Ap)).dot(self.r_k_norm)
@@ -94,7 +95,8 @@ class Krylov(object):
         if self.debug:
             self.ps.append(self.p.copy())
             self.rs.append(self.r.copy())
-        cp.cuda.Stream.null.synchronize()
+        if gpu_available:
+            cp.cuda.Stream.null.synchronize()
         t2 = time.time()
         if self.callback is not None:
             self.callback(self.i, self.residual, t2 - t1)
