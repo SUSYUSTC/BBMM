@@ -112,7 +112,9 @@ class Krylov(object):
                 self.step_lanczos()
             if self.bcg_converged and self.lanczos_converged:
                 break
-            if (self.i in self.residual_check) and (self.residual > self.residual_check[self.i]):
+            if self.i == 1:
+                self.init_residual = self.residual
+            if (self.i in self.residual_check) and (self.residual / self.init_residual > self.residual_check[self.i]):
                 break
             if (self.max_iter is not None) and (self.i >= self.max_iter):
                 break
