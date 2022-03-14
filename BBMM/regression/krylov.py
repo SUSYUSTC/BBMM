@@ -9,7 +9,7 @@ import time
 
 
 class Krylov(object):
-    def __init__(self, A, b, thres=1e-6, callback=None, lanczos_vectors=None, lanczos_n_iter=20, debug=False, max_iter=None):
+    def __init__(self, A, b, thres=1e-6, callback=None, lanczos_vectors=None, lanczos_n_iter=20, debug=False, max_iter=None, residual_check={}):
         self.A = A
         self.b = b
         self.thres = thres
@@ -43,6 +43,7 @@ class Krylov(object):
             self.lanczos_converged = False
         else:
             self.lanczos_converged = True
+        self.residual_check = residual_check
 
     def compute_A(self):
         if (self.l is not None) and (not self.lanczos_converged):
@@ -110,6 +111,8 @@ class Krylov(object):
             if not self.lanczos_converged:
                 self.step_lanczos()
             if self.bcg_converged and self.lanczos_converged:
+                break
+            if (self.i in self.residual_check) and (self.residual > self.residual_check[self.i]):
                 break
             if (self.max_iter is not None) and (self.i >= self.max_iter):
                 break

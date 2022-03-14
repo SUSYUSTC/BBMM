@@ -455,7 +455,7 @@ class BBMM(object):
                 self.GRAM_printed = True
             print("Iter", i, "residual: %12.8f" % (residual,), flush=True, file=self.file)
 
-    def solve_iter(self, Y: np.ndarray, x0: np.ndarray = None, block_size: int = 50, thres: float = 1e-6, compute_gradient: bool = False, random_seed: int = 0, compute_loglikelihood: bool = None, lanczos_n_iter: int = 20, debug: bool = False, max_iter: int = None):
+    def solve_iter(self, Y: np.ndarray, x0: np.ndarray = None, block_size: int = 50, thres: float = 1e-6, compute_gradient: bool = False, random_seed: int = 0, compute_loglikelihood: bool = None, lanczos_n_iter: int = 20, debug: bool = False, max_iter: int = None, residual_check: tp.Dict[int, float] = {}):
         '''
         Solve the preconditioned kernel linear system iteratively by block conjugate gradient
         Equation: M^{-1/2} A M^{-1/2} M^{1/2} v = M^{-1/2} y
@@ -511,7 +511,7 @@ class BBMM(object):
         if self.verbose:
             print("Start iteractive solver with block size", block_size, "and threshold", thres, file=self.file, flush=True)
             #print("\n\n\n\n", file=self.file, flush=True, end='')
-        self.krylov = Krylov(self.mv_preconditioned_Knoise, self.Y_transform, thres=thres, callback=self.callback, lanczos_vectors=self.lanczos_vectors, lanczos_n_iter=lanczos_n_iter, debug=debug, max_iter=max_iter)
+        self.krylov = Krylov(self.mv_preconditioned_Knoise, self.Y_transform, thres=thres, callback=self.callback, lanczos_vectors=self.lanczos_vectors, lanczos_n_iter=lanczos_n_iter, debug=debug, max_iter=max_iter, residual_check=residual_check)
 
         if compute_loglikelihood:
             self.solution, self.d, self.e = self.krylov.run()
